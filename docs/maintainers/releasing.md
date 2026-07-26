@@ -53,9 +53,22 @@ The upside is that nothing publishes without someone pushing a tag on purpose.
 here — release-please builds the changelog from commit titles, and
 `feat!:` / `BREAKING CHANGE:` produce the section users actually read.
 
-**2. Merge the release-please pull request.** It updates `CHANGELOG.md` and
-nothing else. If there is no open release PR, no releasable commits have landed
-since the last one.
+**2. Merge the release-please pull request.** It updates `CHANGELOG.md` and the
+release-please manifest, and nothing else. If there is no open release PR, no
+releasable commits have landed since the last one.
+
+Two things about that PR that look wrong but are not:
+
+- **It never gets CI checks.** Workflows triggered by `GITHUB_TOKEN` do not
+  cascade into further workflow runs, which is GitHub's recursion guard. Branch
+  protection therefore reports it as blocked forever, and it needs an admin
+  merge (`gh pr merge --squash --admin`). It touches no code, so there is
+  nothing for CI to verify anyway.
+- **The version in `.release-please-manifest.json` is not the release version.**
+  release-please keeps its own semver counter there (`1.0.0`, `1.1.0`, …) for
+  internal bookkeeping. Nothing consumes it. The version users see is the
+  `v<verusd>-rN` tag, computed by `scripts/next-version.sh`. Ignore the
+  manifest number; do not try to reconcile the two.
 
 **3. Check what the next tag should be.**
 
