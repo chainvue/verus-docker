@@ -1,0 +1,12 @@
+{
+  "name": "VRSCTEST",
+  "kind": "testnet",
+  "currencyid": "iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq",
+  "ports": { "p2p": 18842, "rpc": 18843 },
+  "bootstrap": {
+    "url": "https://bootstrap.verustest.net/vrsctest-bootstrap.tar.gz",
+    "signer": "Verus Coin Foundation Bootstrap@",
+    "approximate_size_bytes": 7086696141
+  },
+  "notes": "The Verus testnet. Both the data directory and the config file are lowercase (vrsctest/vrsctest.conf) even though the chain is written VRSCTEST. The testnet bootstrap is regenerated roughly weekly."
+}

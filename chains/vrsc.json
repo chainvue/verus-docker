@@ -1,0 +1,12 @@
+{
+  "name": "VRSC",
+  "kind": "root",
+  "currencyid": "i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV",
+  "ports": { "p2p": 27485, "rpc": 27486 },
+  "bootstrap": {
+    "url": "https://bootstrap.verus.io/VRSC-bootstrap.tar.gz",
+    "signer": "Verus Coin Foundation Bootstrap@",
+    "approximate_size_bytes": 23825085859
+  },
+  "notes": "The Verus root chain. Ports are compiled into the daemon; -port has no effect on VRSC. The bootstrap host answers HTTP 403 to a default curl User-Agent, which verus-docker works around."
+}

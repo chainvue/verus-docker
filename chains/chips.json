@@ -1,0 +1,13 @@
+{
+  "name": "CHIPS",
+  "kind": "pbaas",
+  "datadir_hash": "f315367528394674d45277e369629605a1c3ce9f",
+  "ports": { "p2p": 22777, "rpc": 22778 },
+  "bootstrap": {
+    "url": "https://bootstrap.dexstats.info/CHIPS-bootstrap.tar.gz",
+    "signer": "dexstatsbootstrap@",
+    "approximate_size_bytes": 10018999028,
+    "tls_note": "bootstrap.dexstats.info serves an expired certificate issued for a different hostname. verus-docker does not use PBaaS bootstraps; this URL is recorded for reference only."
+  },
+  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is around 8 GB."
+}

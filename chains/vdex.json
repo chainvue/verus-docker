@@ -1,0 +1,13 @@
+{
+  "name": "VDEX",
+  "kind": "pbaas",
+  "datadir_hash": "53fe39eea8c06bba32f1a4e20db67e5524f0309d",
+  "ports": { "p2p": 21777, "rpc": 21778 },
+  "bootstrap": {
+    "url": "https://bootstrap.dexstats.info/VDEX-bootstrap.tar.gz",
+    "signer": "dexstatsbootstrap@",
+    "approximate_size_bytes": 5213665259,
+    "tls_note": "bootstrap.dexstats.info serves an expired certificate issued for a different hostname. verus-docker does not use PBaaS bootstraps; this URL is recorded for reference only."
+  },
+  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is around 5 GB."
+}

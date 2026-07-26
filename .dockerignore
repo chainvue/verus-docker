@@ -1,0 +1,4 @@
+# Only the Dockerfile, rootfs/ and chains/ are needed to build the image.
+*
+!rootfs/
+!chains/

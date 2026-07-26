@@ -1,0 +1,17 @@
+# Never commit real credentials or chain data.
+.env
+*.rpc-credentials
+rpc-credentials
+
+# Local scratch
+/tmp/
+*.log
+*.tar.gz
+*.tgz
+*.part
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+!.vscode/extensions.json

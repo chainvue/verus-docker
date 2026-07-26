@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/chainvue/verus-docker/chains/schema.json",
+  "title": "verus-docker chain metadata",
+  "description": "OPTIONAL convenience metadata for a Verus chain. This directory is never a whitelist: any chain name works without an entry here. An entry only supplies things the container cannot discover on its own, such as a bootstrap URL or a conventional port assignment.",
+  "type": "object",
+  "required": ["name", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The chain name as passed to verusd -chain=."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["root", "testnet", "pbaas"],
+      "description": "root = VRSC, testnet = VRSCTEST, pbaas = a chain launched on top of a root chain."
+    },
+    "currencyid": {
+      "type": "string",
+      "description": "The chain's i-address on its root chain."
+    },
+    "datadir_hash": {
+      "type": "string",
+      "description": "For PBaaS chains: the hex directory name verusd derives under <home>/pbaas/. Documentation only; the daemon creates it."
+    },
+    "ports": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "p2p": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "rpc": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      },
+      "description": "Default ports. For VRSC and VRSCTEST these are the daemon's compiled-in values and cannot be changed with -port. For PBaaS chains the daemon derives an unpredictable P2P port from the chain definition, so these are a convention this project applies via -port and -rpcport."
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Bootstrap archive URL. A <url>.sha256sum sidecar must exist next to it; verus-docker refuses to download an archive it cannot verify."
+        },
+        "signer": {
+          "type": "string",
+          "description": "The VerusID that publishes this bootstrap. Not all bootstraps come from the Verus Coin Foundation — record who you are trusting."
+        },
+        "approximate_size_bytes": { "type": "integer" },
+        "tls_note": {
+          "type": "string",
+          "description": "Set when the host has known TLS problems."
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
