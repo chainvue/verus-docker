@@ -179,7 +179,17 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      packages: read
     steps:
+      # Trivy pulls the image from the registry, so it needs credentials.
+      # Without this it fails with UNAUTHORIZED against a private package —
+      # and a package is private until someone makes it public by hand.
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # Runs after publishing on purpose. Holding the release hostage to a
       # newly disclosed CVE in a base image would block security updates to
       # verusd itself, which is usually the more urgent thing. A critical
