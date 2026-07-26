@@ -87,7 +87,7 @@ echo "VRSC_RPC_PASSWORD=$(openssl rand -hex 32)"   >> .env
 entrypoint still waits for it to finish syncing before starting the PBaaS
 daemon. Both waits are doing useful work.
 
-## Ports must be pinned
+## Ports
 
 A PBaaS chain's P2P port is **derived by the daemon** from a CRC32 over the
 chain definition:
@@ -99,9 +99,25 @@ else                      return 16000 + (magic % 49500);
 ```
 
 It is deterministic per chain but not predictable without running the code, so
-this image requires `P2P_PORT` and `RPC_PORT` for any non-root chain and tells
-you so rather than guessing. `-port` overrides P2P for non-VRSC chains only;
+this image never guesses. `-port` overrides P2P for non-VRSC chains only;
 `-rpcport` works everywhere.
+
+Two cases, and the difference matters:
+
+- **A chain with an entry in `chains/`** inherits the conventional ports from
+  its metadata. `CHAIN=chips` alone is enough.
+- **A chain without one** requires `P2P_PORT` and `RPC_PORT`, and fails with an
+  explicit message rather than picking something arbitrary:
+
+  ```
+  No port assignment is known for chain 'somenewchain'.
+  PBaaS P2P ports are derived by the daemon from the chain definition
+  and are not predictable, so they must be pinned explicitly.
+  ```
+
+Setting them explicitly always works and always wins, so pinning them in
+production is still the safer habit — it means a metadata change cannot move
+your ports underneath you.
 
 The conventional assignments recorded in `chains/` follow the daemon's own
 `RPC = P2P + 1` rule:
@@ -162,8 +178,8 @@ a `<url>.sha256sum` sidecar must exist, and it is verified before extraction.
 
 ## Adding a chain nobody has run before
 
-Nothing special is required. `CHAIN=<name>` with pinned ports works for any
-chain the root node knows about:
+Nothing special is required — `CHAIN=<name>` works for any chain the root node
+knows about. A chain with no `chains/` entry also needs its ports:
 
 ```bash
 docker run -d \

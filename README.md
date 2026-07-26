@@ -68,9 +68,12 @@ curl -s --user "$RPC_USER:$RPC_PASSWORD" \
 ### Run a PBaaS chain
 
 ```bash
--e CHAIN=chips -e P2P_PORT=22777 -e RPC_PORT=22778 \
+-e CHAIN=chips \
 -e ROOT_RPC_HOST=<your-vrsc-node> -e ROOT_RPC_USER=... -e ROOT_RPC_PASSWORD=...
 ```
+
+A chain without a `chains/` entry also needs `P2P_PORT` and `RPC_PORT`, since
+the daemon derives an unpredictable P2P port.
 
 Any chain name or i-address works — there is no whitelist. PBaaS chains do need
 a reachable Verus root node; see [PBaaS chains](#pbaas-chains-read-this-first).
@@ -146,7 +149,7 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `ROOT_CHAIN` | `VRSC` | Root chain a PBaaS chain belongs to. |
 | `PUID` / `PGID` | `1000` | Remap the runtime user for host bind mounts (start as root). |
 | `RPC_USER` / `RPC_PASSWORD` | generated | Random on first start, written to the data volume. |
-| `RPC_PORT` / `P2P_PORT` | per chain | VRSC 27486/27485, VRSCTEST 18843/18842. Required for PBaaS. |
+| `RPC_PORT` / `P2P_PORT` | per chain | VRSC 27486/27485, VRSCTEST 18843/18842. PBaaS chains take them from `chains/` metadata if present, otherwise required. |
 | `RPC_ALLOW_IP` | `auto` | `auto` = the container's own network. Never silently `0.0.0.0/0`. |
 | `TXINDEX` | `1` | Full transaction index. Costs disk. |
 | `IDINDEX`, `TIMESTAMPINDEX`, `INSIGHT_EXPLORER` | `false` | Applied at config creation only; changing later needs `-reindex`. |

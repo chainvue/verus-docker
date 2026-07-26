@@ -103,6 +103,13 @@ Error: chain "chips" is a PBaaS chain: set ports.p2p and ports.rpc explicitly
 
 That is intentional, and CI asserts it stays that way.
 
+Note this is **stricter than the container**, which falls back to the
+conventional ports in `chains/` when the chain has an entry there. Helm
+templating cannot read that file, so the chart asks rather than guesses. Pinning
+ports explicitly is the better habit in Kubernetes anyway — Service and
+NetworkPolicy ports have to agree with the container, and an implicit value that
+could change is exactly what you do not want there.
+
 ## The probes, explained
 
 This is the part most node charts get wrong, so it is worth being explicit.
