@@ -1,0 +1,50 @@
+# Devcontainer stack: an editor workspace plus a live testnet node.
+#
+# The node is a sibling container, not a nested one, so it behaves exactly like
+# a normal deployment and survives rebuilds of the workspace.
+
+name: verus-docker-dev
+
+services:
+  workspace:
+    image: mcr.microsoft.com/devcontainers/base:bookworm
+    volumes:
+      - ..:/workspaces/verus-docker:cached
+      # Talk to the host Docker daemon (docker-outside-of-docker).
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    environment:
+      # Point the RPC examples at the sibling node without any configuration.
+      VERUS_CONTAINER: verus-dev
+      VERUS_RPC_URL: http://verus-dev:18843
+    depends_on:
+      - verus-dev
+
+  verus-dev:
+    # Built from this repository so your changes are what you are testing.
+    build:
+      context: ..
+    image: verus-docker:dev
+    container_name: verus-dev
+    restart: unless-stopped
+    stop_grace_period: 120s
+    environment:
+      CHAIN: VRSCTEST
+      USE_BOOTSTRAP: "false"
+      # Keep a laptop's fan quiet; raise or remove for realistic sync speed.
+      MAX_CONNECTIONS: "8"
+    volumes:
+      - verus-dev-data:/home/verus/.komodo
+      # Shares the ~740 MB parameters with every other stack on this host.
+      - verus-params:/home/verus/.zcash-params
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--quiet"]
+      interval: 30s
+      timeout: 15s
+      start_period: 180s
+      retries: 5
+
+volumes:
+  verus-dev-data:
+  verus-params:
+    name: verus-params

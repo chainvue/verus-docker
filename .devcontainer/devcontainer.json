@@ -1,0 +1,43 @@
+{
+  "name": "verus-docker",
+
+  // Brings up the workspace alongside a real testnet node, so opening the
+  // repository gives you a working RPC endpoint to hack against.
+  "dockerComposeFile": "compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/verus-docker",
+
+  "features": {
+    // The linters, the image build and the smoke test all shell out to Docker,
+    // so the container needs the host daemon rather than a nested one.
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "exiasr.hadolint",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "shellformat.useEditorConfig": true,
+        "[shellscript]": { "editor.defaultFormatter": "foxundermoon.shell-format" },
+        "files.associations": { "*.yml": "yaml" }
+      }
+    }
+  },
+
+  "postCreateCommand": ".devcontainer/post-create.sh",
+
+  // Matches the image: unprivileged, uid 1000.
+  "remoteUser": "vscode"
+}

@@ -2,8 +2,8 @@
 
 **Production-ready Docker images for Verus — mainnet, testnet, and every PBaaS chain.**
 
-> **Status: Phase 3.** Image, deployment manifests, monitoring and release
-> automation are complete. The full documentation set and community files are
+> **Status: Phase 4.** Image, deployment manifests, monitoring, release
+> automation and documentation are complete. Community and governance files are
 > landing next. See [Roadmap](#roadmap).
 
 ---
@@ -245,16 +245,37 @@ In Kubernetes the pod becomes **Ready only once the chain is synced** — readin
 means "safe to serve RPC". Liveness is a separate probe, so a node doing its
 initial sync is never restarted out from under itself.
 
+## Documentation
+
+| Guide | For |
+| --- | --- |
+| [Quickstart](docs/quickstart.md) | Zero to a working RPC endpoint, then a developer/operator fork |
+| [Production](docs/production.md) | Sizing, backups, upgrades, security, failure modes |
+| [Staking](docs/staking.md) | Different threat model — read before staking |
+| [PBaaS chains](docs/pbaas.md) | Running any PBaaS chain, and why it needs a root node |
+| [Kubernetes](docs/kubernetes.md) | Manifests, Helm, and why the probes differ |
+| [Monitoring](docs/monitoring.md) | Metrics reference, dashboard, alert rules |
+| [Troubleshooting](docs/troubleshooting.md) | Symptom-first fixes |
+| [Development](docs/development.md) | Building, testing, conventions, invariants |
+| [Releasing](docs/maintainers/releasing.md) | Maintainer runbook |
+
+Runnable RPC examples in [`examples/rpc/`](examples/rpc/) — curl, Node and
+Python, each connecting and reading a block with no configuration.
+
 ## Building locally
 
 ```bash
 make build            # host architecture
 make build-multiarch  # amd64 + arm64
-make lint             # shellcheck + shfmt + hadolint + JSON
+make lint             # every linter, all containerised
+make smoke            # 23-assertion smoke test
 make up-testnet       # local testnet node
 make cli CMD=getinfo
 make down
 ```
+
+A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
+*Reopen in Container*, and a testnet node comes up alongside your editor.
 
 ---
 
@@ -263,7 +284,7 @@ make down
 - [x] **Phase 1** — core image, entrypoint, CLI wrapper, health probes
 - [x] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
 - [x] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
-- [ ] **Phase 4** — full documentation set
+- [x] **Phase 4** — full documentation set
 - [ ] **Phase 5** — community and governance files
 
 ---

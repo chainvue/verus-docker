@@ -36,7 +36,9 @@ SHELL_SCRIPTS := rootfs/usr/local/bin/entrypoint.sh \
                  scripts/smoke-test.sh \
                  scripts/next-version.sh \
                  scripts/check-env-docs.sh \
-                 scripts/bump-upstream.sh
+                 scripts/bump-upstream.sh \
+                 examples/rpc/curl.sh \
+                 .devcontainer/post-create.sh
 
 .DEFAULT_GOAL := help
 .PHONY: help build build-multiarch build-exporter lint shellcheck shfmt shfmt-fix \
