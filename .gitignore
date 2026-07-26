@@ -15,3 +15,7 @@ rpc-credentials
 .idea/
 .vscode/
 !.vscode/extensions.json
+
+# Python build artifacts
+__pycache__/
+*.pyc

@@ -73,9 +73,9 @@ json-lint: ## Validate the chain metadata and dashboard JSON
 		jq -e . "$$f" > /dev/null && echo "  ok  $$f"; \
 	done
 
-py-check: ## Byte-compile the exporter
+py-check: ## Syntax-check the exporter (compiles in memory; leaves no artifacts)
 	docker run --rm -v "$(PWD):/w" -w /w python:3.12-slim \
-		python -m py_compile exporter/verus_exporter.py
+		python -B -c "import pathlib; f='exporter/verus_exporter.py'; compile(pathlib.Path(f).read_text(), f, 'exec')"
 	@echo "  ok  exporter/verus_exporter.py"
 
 helm-lint: ## Lint and render the Helm chart
