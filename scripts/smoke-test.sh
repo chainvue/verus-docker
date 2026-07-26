@@ -84,7 +84,16 @@ cleanup() {
 		docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 	fi
 	if [[ "$CLEANUP_DATA" == true && -n "$DATA_DIR" && -d "$DATA_DIR" ]]; then
-		rm -rf -- "$DATA_DIR"
+		# The daemon writes as uid 1000. On Linux the CI runner is a different
+		# user and cannot remove those files, so fall back to deleting them
+		# from inside a container that can. (On macOS, Docker Desktop maps
+		# ownership and the plain rm succeeds, which is why this only ever
+		# shows up in CI.)
+		if ! rm -rf -- "$DATA_DIR" 2>/dev/null; then
+			docker run --rm -v "${DATA_DIR}:/target" alpine:3 \
+				sh -c 'rm -rf -- /target/* /target/.[!.]* 2>/dev/null || true' >/dev/null 2>&1 || true
+			rm -rf -- "$DATA_DIR" 2>/dev/null || true
+		fi
 	fi
 	exit "$status"
 }
