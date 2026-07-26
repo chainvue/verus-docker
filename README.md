@@ -2,8 +2,14 @@
 
 **Production-ready Docker images for Verus — mainnet, testnet, and every PBaaS chain.**
 
-> **Status: Phase 5.** Everything is in place. Remaining work is final polish
-> and a clean-room verification pass. See [Roadmap](#roadmap).
+[![CI](https://github.com/chainvue/verus-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/chainvue/verus-docker/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/chainvue/verus-docker?sort=semver)](https://github.com/chainvue/verus-docker/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Verus](https://img.shields.io/badge/verusd-v1.2.17--2-blueviolet)](https://github.com/VerusCoin/VerusCoin/releases)
+
+> **Not yet published.** The image is not on `ghcr.io` until the first release
+> is tagged, so the quickstart below needs `make build` first. Everything else
+> is complete and tested. See [Roadmap](#roadmap).
 
 ---
 
@@ -47,17 +53,23 @@ docker exec verus verus getinfo
 
 ### Talk to it over HTTP
 
-Credentials are generated on first start and stored in the data volume:
+Credentials are generated on first start and written into the data volume, so
+this works as-is:
 
 ```bash
-docker exec verus cat /home/verus/.komodo/vrsctest/rpc-credentials
+docker compose -f examples/compose.testnet.yml exec -T verus sh -c '
+  . /home/verus/.komodo/vrsctest/rpc-credentials
+  curl -s --user "$RPC_USER:$RPC_PASSWORD" \
+    --data "{\"jsonrpc\":\"1.0\",\"id\":\"1\",\"method\":\"getblockchaininfo\",\"params\":[]}" \
+    http://127.0.0.1:18843/' | jq .result
 ```
 
-```bash
-curl -s --user "$RPC_USER:$RPC_PASSWORD" \
-  --data '{"jsonrpc":"1.0","id":"1","method":"getblockchaininfo","params":[]}' \
-  http://<container-ip>:18843/ | jq .
-```
+To read the credentials yourself, or to reach the node from your own
+application, see [`examples/rpc/`](examples/rpc/) — runnable curl, Node and
+Python clients that need no configuration.
+
+> The RPC port is deliberately **not** published to the host. Reach it from
+> another container on the same network, or via `exec` as above.
 
 ### Switch to mainnet
 
@@ -289,7 +301,8 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 - [x] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
 - [x] **Phase 4** — full documentation set
 - [x] **Phase 5** — community and governance files
-- [ ] **Phase 6** — clean-room verification and final polish
+- [x] **Phase 6** — clean-room verification and final polish
+- [ ] **First release** — tag `v1.2.17-2-r1` to publish the image
 
 ---
 
