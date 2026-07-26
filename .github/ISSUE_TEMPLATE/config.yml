@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/chainvue/verus-docker/discussions
+    about: How do I…? Is this supposed to…? Show and tell. Faster than an issue.
+
+  - name: Security vulnerability
+    url: https://github.com/chainvue/verus-docker/security/advisories/new
+    about: Report privately. Please do not open a public issue.
+
+  - name: Verus daemon or protocol issue
+    url: https://github.com/VerusCoin/VerusCoin/issues
+    about: We containerise verusd without modifying it. Consensus, RPC and P2P bugs belong upstream.
+
+  - name: Verus community
+    url: https://verus.io/community
+    about: Discord and the wider Verus community.

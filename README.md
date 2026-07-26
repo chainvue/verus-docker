@@ -2,9 +2,8 @@
 
 **Production-ready Docker images for Verus — mainnet, testnet, and every PBaaS chain.**
 
-> **Status: Phase 4.** Image, deployment manifests, monitoring, release
-> automation and documentation are complete. Community and governance files are
-> landing next. See [Roadmap](#roadmap).
+> **Status: Phase 5.** Everything is in place. Remaining work is final polish
+> and a clean-room verification pass. See [Roadmap](#roadmap).
 
 ---
 
@@ -258,6 +257,7 @@ initial sync is never restarted out from under itself.
 | [Troubleshooting](docs/troubleshooting.md) | Symptom-first fixes |
 | [Development](docs/development.md) | Building, testing, conventions, invariants |
 | [Releasing](docs/maintainers/releasing.md) | Maintainer runbook |
+| [Repository setup](docs/maintainers/repository-setup.md) | One-time GitHub settings |
 
 Runnable RPC examples in [`examples/rpc/`](examples/rpc/) — curl, Node and
 Python, each connecting and reading a block with no configuration.
@@ -285,9 +285,22 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 - [x] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
 - [x] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
 - [x] **Phase 4** — full documentation set
-- [ ] **Phase 5** — community and governance files
+- [x] **Phase 5** — community and governance files
+- [ ] **Phase 6** — clean-room verification and final polish
 
 ---
+
+## Community
+
+| | |
+| --- | --- |
+| Questions, ideas, show and tell | [Discussions](https://github.com/chainvue/verus-docker/discussions) |
+| Bugs and feature requests | [Issues](https://github.com/chainvue/verus-docker/issues) |
+| Adding a PBaaS chain | [Chain support template](https://github.com/chainvue/verus-docker/issues/new?template=chain_support.yml) — genuinely easy, genuinely welcome |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Security | [SECURITY.md](SECURITY.md) — report privately, never as an issue |
+| Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| The wider Verus community | [verus.io/community](https://verus.io/community) |
 
 ## Non-goals
 
@@ -300,9 +313,18 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 
 ## Disclaimer
 
-An independent community project. Not affiliated with or endorsed by the Verus
-Coin Foundation. Nothing here is financial advice. Run at your own risk, and
-back up your `wallet.dat`.
+An independent community project. **Not affiliated with, endorsed by, or
+operated by the Verus Coin Foundation.** We containerise the upstream daemon
+without modifying it; protocol issues belong
+[upstream](https://github.com/VerusCoin/VerusCoin).
+
+Nothing here is financial advice. Running a node carries operational risk, and
+running one with a wallet carries financial risk. You are responsible for your
+own keys, your own backups and your own security posture — start with
+[production.md](docs/production.md) and, if you stake,
+[staking.md](docs/staking.md).
+
+Provided as-is under the MIT licence, with no warranty of any kind.
 
 ## License
 

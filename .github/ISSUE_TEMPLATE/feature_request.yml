@@ -1,0 +1,75 @@
+name: Feature request
+description: Suggest a capability or improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything non-trivial, please open this before writing code — it is
+        much nicer than having a pull request declined after the fact.
+
+        Out of scope, for reference: mining, wallet GUIs, key handling of any
+        kind, and forking or patching verusd. See
+        [CONTRIBUTING.md](https://github.com/chainvue/verus-docker/blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The situation, not the solution. This is the most useful box on the form.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried or considered?
+      description: Including whether existing configuration gets you close.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      multiple: true
+      options:
+        - Image / entrypoint
+        - Health checks
+        - Bootstrap or parameters
+        - PBaaS support
+        - Docker Compose examples
+        - Kubernetes / Helm
+        - Monitoring / exporter
+        - Documentation
+        - CI / release automation
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: defaults
+    attributes:
+      label: Does this change a default?
+      description: |
+        Changing defaults is possible but deliberately slow — people pin
+        infrastructure on them.
+      options:
+        - label: This would change an existing default, environment variable, port or volume path
+        - label: I am willing to work on this
+
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Invariants
+      description: |
+        The [project invariants](https://github.com/chainvue/verus-docker/blob/main/docs/development.md#invariants)
+        hold regardless of the feature. If yours conflicts with one, say so —
+        the invariant might be wrong, but that is a conversation worth having
+        explicitly.
+      options:
+        - label: I have read the invariants and believe this does not conflict with them

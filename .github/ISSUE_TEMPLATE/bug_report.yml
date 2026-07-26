@@ -1,0 +1,132 @@
+name: Bug report
+description: Something is not working as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Security issue?** Do not use this form — see
+        [SECURITY.md](https://github.com/chainvue/verus-docker/blob/main/SECURITY.md).
+
+        **A question rather than a bug?**
+        [Discussions](https://github.com/chainvue/verus-docker/discussions) will
+        get you a faster answer.
+
+  - type: input
+    id: image-tag
+    attributes:
+      label: Image tag
+      description: The exact tag or digest you are running.
+      placeholder: ghcr.io/chainvue/verus-docker:v1.2.17-2-r1
+    validations:
+      required: true
+
+  - type: input
+    id: chain
+    attributes:
+      label: Chain
+      placeholder: VRSC, VRSCTEST, chips, ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform and architecture
+      options:
+        - linux/amd64
+        - linux/arm64
+        - macOS (Apple Silicon, Docker Desktop)
+        - macOS (Intel, Docker Desktop)
+        - Windows (Docker Desktop / WSL2)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running it?
+      options:
+        - docker run
+        - Docker Compose (an example from this repo)
+        - Docker Compose (my own file)
+        - Kubernetes (plain manifests)
+        - Kubernetes (Helm chart)
+        - Devcontainer
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or compose file you used. Redact credentials.
+      placeholder: |
+        1. docker compose -f examples/compose.testnet.yml up -d
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Please run these and paste the output. They answer most of the
+        follow-up questions we would otherwise have to ask.
+      value: |
+        <details>
+        <summary>Diagnostics</summary>
+
+        ```console
+        $ docker exec <container> verus getinfo
+
+
+        $ docker exec <container> healthcheck.sh
+
+
+        $ docker inspect <container> --format '{{.Config.Image}} {{.State.Status}} OOMKilled={{.State.OOMKilled}}'
+
+
+        ```
+        </details>
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        `docker logs --tail 100 <container>`. Credentials are never logged, but
+        please check before pasting.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked [troubleshooting.md](https://github.com/chainvue/verus-docker/blob/main/docs/troubleshooting.md)
+          required: true
+        - label: I am not reporting a security vulnerability here
+          required: true

@@ -1,0 +1,90 @@
+name: Add or update a PBaaS chain
+description: Contribute convenience metadata for a chain
+labels: [chain-support]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These are welcome and easy to merge.
+
+        **Note that you do not need this to run a chain.** `CHAIN=<name>` with
+        explicit `P2P_PORT` and `RPC_PORT` already works for any chain — the
+        `chains/` directory is a convenience cache, never an allowlist. This
+        entry just saves the next person from looking things up.
+
+        A pull request adding `chains/<name>.json` directly is even more
+        welcome than an issue. See
+        [chains/schema.json](https://github.com/chainvue/verus-docker/blob/main/chains/schema.json).
+
+  - type: input
+    id: name
+    attributes:
+      label: Chain name
+      description: As passed to verusd -chain=
+      placeholder: chips
+    validations:
+      required: true
+
+  - type: input
+    id: currencyid
+    attributes:
+      label: Currency ID (i-address)
+      description: From `verus getcurrency <name>` on a synced root node.
+      placeholder: iAbc...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rootchain
+    attributes:
+      label: Root chain
+      options:
+        - VRSC (mainnet)
+        - VRSCTEST (testnet)
+    validations:
+      required: true
+
+  - type: input
+    id: ports
+    attributes:
+      label: Suggested ports
+      description: |
+        PBaaS P2P ports are derived by the daemon and not predictable, so these
+        are a convention. Convention here is RPC = P2P + 1.
+      placeholder: p2p 25777, rpc 25778
+    validations:
+      required: true
+
+  - type: input
+    id: memory
+    attributes:
+      label: Observed memory use
+      description: Roughly, at the chain tip. Very useful for sizing.
+      placeholder: around 4 GB
+
+  - type: input
+    id: bootstrap
+    attributes:
+      label: Bootstrap URL (optional)
+      description: |
+        Only include one that is genuinely usable: a working `<url>.sha256sum`
+        sidecar must exist next to it, and TLS must be valid. verus-docker
+        refuses to download an archive it cannot verify.
+      placeholder: https://example.org/MYCHAIN-bootstrap.tar.gz
+
+  - type: input
+    id: bootstrap-signer
+    attributes:
+      label: Who publishes that bootstrap?
+      description: |
+        Recorded in the metadata so readers know whose snapshot they would be
+        trusting. Not every bootstrap comes from the Verus Coin Foundation.
+      placeholder: someone@
+
+  - type: checkboxes
+    id: verified
+    attributes:
+      label: Have you run it?
+      options:
+        - label: I have run this chain with these settings using verus-docker
+        - label: I am happy to open the pull request myself

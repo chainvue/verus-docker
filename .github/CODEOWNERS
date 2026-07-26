@@ -1,0 +1,17 @@
+# Every pull request needs a review from a maintainer.
+#
+# GitHub matches the LAST rule that applies, so order matters here.
+
+*                       @devdudeio
+
+# Anything that decides what users end up running, or that touches
+# verification, credentials or signal handling. Extra care warranted.
+/Dockerfile             @devdudeio
+/rootfs/                @devdudeio
+/.github/workflows/     @devdudeio
+/scripts/               @devdudeio
+/SECURITY.md            @devdudeio
+
+# Chain metadata is the low-friction contribution path. Still reviewed, but a
+# bad entry here cannot break an unlisted chain — chains/ is never an allowlist.
+/chains/                @devdudeio
