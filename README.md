@@ -7,10 +7,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Verus](https://img.shields.io/badge/verusd-v1.2.17--2-blueviolet)](https://github.com/VerusCoin/VerusCoin/releases)
 
-> **Not yet published.** The image is not on `ghcr.io` until the first release
-> is tagged, so the quickstart below needs `make build` first. Everything else
-> is complete and tested. See [Roadmap](#roadmap).
-
 ---
 
 ## ⚡ Quickstart
@@ -302,7 +298,7 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 - [x] **Phase 4** — full documentation set
 - [x] **Phase 5** — community and governance files
 - [x] **Phase 6** — clean-room verification and final polish
-- [ ] **First release** — tag `v1.2.17-2-r1` to publish the image
+- [x] **First release** — `v1.2.17-2-r1` published, signed, with an SBOM
 
 ---
 
