@@ -1,8 +1,10 @@
 version: 2
 
 updates:
-  # Keeps the action versions used across the workflows current. Worth having:
-  # this repo signs and publishes images, so its CI is part of the supply chain.
+  # Actions are pinned to commit SHAs, not tags: a tag is mutable, so anyone who
+  # compromises an action repository could repoint v4 at new code and every
+  # workflow would pick it up. Dependabot understands SHA pins and rewrites both
+  # the SHA and its trailing version comment together.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

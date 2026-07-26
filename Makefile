@@ -9,13 +9,15 @@ CONTAINER   ?= verus
 CHAIN       ?= VRSCTEST
 CMD         ?= getinfo
 
-SHELLCHECK_IMAGE  ?= koalaman/shellcheck:stable
-HADOLINT_IMAGE    ?= hadolint/hadolint
-SHFMT_IMAGE       ?= mvdan/shfmt:v3-alpine
-HELM_IMAGE        ?= alpine/helm:latest
-KUBECTL_IMAGE     ?= bitnami/kubectl:latest
-KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
-ACTIONLINT_IMAGE  ?= rhysd/actionlint:latest
+SHELLCHECK_IMAGE  ?= koalaman/shellcheck:v0.10.0
+HADOLINT_IMAGE    ?= hadolint/hadolint:v2.12.0
+SHFMT_IMAGE       ?= mvdan/shfmt:v3.10.0-alpine
+HELM_IMAGE        ?= alpine/helm:3.16.3
+# bitnami/kubectl no longer publishes resolvable versioned tags, so use
+# the upstream kustomize image directly.
+KUSTOMIZE_IMAGE   ?= registry.k8s.io/kustomize/kustomize:v5.4.3
+KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:v0.6.7
+ACTIONLINT_IMAGE  ?= rhysd/actionlint:1.7.7
 K8S_VERSION       ?= 1.31.0
 
 COMPOSE_TESTNET    := examples/compose.testnet.yml
@@ -99,8 +101,8 @@ helm-lint: ## Lint and render the Helm chart
 	@echo "  ok  deploy/helm/verus-node"
 
 k8s-validate: ## Validate the plain manifests and rendered chart against Kubernetes schemas
-	docker run --rm -v "$(PWD):/w" -w /w --entrypoint kubectl $(KUBECTL_IMAGE) \
-		kustomize deploy/kubernetes/ > /dev/null
+	docker run --rm -v "$(PWD):/w" -w /w $(KUSTOMIZE_IMAGE) \
+		build deploy/kubernetes/ > /dev/null
 	docker run --rm -v "$(PWD):/w" -w /w $(KUBECONFORM_IMAGE) \
 		-strict -summary -kubernetes-version $(K8S_VERSION) \
 		-ignore-filename-pattern 'kustomization.yaml' deploy/kubernetes/

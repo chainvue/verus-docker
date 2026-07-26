@@ -179,6 +179,43 @@ in the Dockerfile. The build cross-checks the embedded signature file as
 defence in depth, but an attacker who replaced the archive would control both —
 which is precisely why a human confirms the pinned value.
 
+## Pinning policy
+
+Everything CI executes is pinned, because this repository signs and publishes
+images that people run next to wallets. A compromised action would sit inside
+that supply chain.
+
+| What | Pinned to | Updated by |
+| --- | --- | --- |
+| GitHub Actions | 40-character commit SHA, with the version in a trailing comment | Dependabot (weekly) |
+| Linter and tooling images | Explicit version tag | Manually |
+| The Verus daemon | SHA-256 of the release archive, per architecture | `upstream-watch.yml` (daily PR) |
+| The base image | Tag, with digest drift watched separately | `rebuild.yml` (weekly PR) |
+
+Actions get SHAs rather than tags because a git tag is mutable: an attacker who
+compromises an action repository can repoint `v4` at new code, and every
+workflow in the world picks it up on the next run. A SHA cannot be repointed.
+
+The trailing comment is not decoration — it is how a human reads the diff, and
+Dependabot rewrites both parts together:
+
+```yaml
+- uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+```
+
+Tooling images are pinned to version tags rather than digests deliberately.
+They run in a sandboxed lint step, never touch the published artifact, and no
+automation watches image digests — a digest pin there would silently rot until
+someone deleted the image out from under CI.
+
+To re-pin everything after adding an action:
+
+```bash
+gh api repos/OWNER/REPO/git/ref/tags/TAG --jq '.object.sha + " " + .object.type'
+# if type is "tag" (annotated), dereference it:
+gh api repos/OWNER/REPO/git/tags/SHA --jq '.object.sha'
+```
+
 ## If a release goes wrong
 
 **Never move or delete a published immutable tag.** Someone has already pulled

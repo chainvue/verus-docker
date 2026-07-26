@@ -20,11 +20,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: ShellCheck
         run: |
-          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 \
             --shell=bash --external-sources --severity=style \
             rootfs/usr/local/bin/entrypoint.sh \
             rootfs/usr/local/bin/healthcheck.sh \
@@ -34,7 +34,7 @@ jobs:
 
       - name: shfmt
         run: |
-          docker run --rm -v "$PWD:/mnt" -w /mnt mvdan/shfmt:v3-alpine -d \
+          docker run --rm -v "$PWD:/mnt" -w /mnt mvdan/shfmt:v3.10.0-alpine -d \
             rootfs/usr/local/bin/entrypoint.sh \
             rootfs/usr/local/bin/healthcheck.sh \
             rootfs/usr/local/bin/verus \
@@ -42,14 +42,14 @@ jobs:
             scripts/*.sh
 
       - name: hadolint (node image)
-        run: docker run --rm -i hadolint/hadolint < Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.12.0 < Dockerfile
 
       - name: hadolint (exporter image)
-        run: docker run --rm -i hadolint/hadolint < exporter/Dockerfile
+        run: docker run --rm -i hadolint/hadolint:v2.12.0 < exporter/Dockerfile
 
       - name: actionlint
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
 
       - name: Exporter syntax
         run: |
@@ -66,7 +66,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Every env var the container reads must appear in the README table and
       # in .env.example. This is the check that stops configuration rotting.
@@ -74,7 +74,7 @@ jobs:
         run: bash scripts/check-env-docs.sh
 
       - name: Link check
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           # Bootstrap hosts rate-limit and 403 unknown user agents; GitHub
           # release URLs are checked implicitly by the build itself.
@@ -94,9 +94,9 @@ jobs:
     name: Helm and Kubernetes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
           version: v3.16.3
 
@@ -135,7 +135,7 @@ jobs:
       - name: Validate against Kubernetes schemas
         run: |
           docker run --rm -v /tmp:/tmp -v "$PWD:/w" -w /w \
-            ghcr.io/yannh/kubeconform:latest \
+            ghcr.io/yannh/kubeconform:v0.6.7 \
             -strict -summary -kubernetes-version 1.31.0 -ignore-missing-schemas \
             /tmp/render-mainnet.yaml /tmp/render-testnet.yaml /tmp/render-kustomize.yaml
 
@@ -144,13 +144,13 @@ jobs:
     name: Build and smoke test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # amd64 only here; the release workflow proves the cross build.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64
@@ -164,7 +164,7 @@ jobs:
       # The key is the pinned hash list, so a parameter change busts the cache.
       - name: Restore Zcash parameters
         id: params-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/zcash-params
           key: zcash-params-${{ hashFiles('rootfs/usr/local/lib/verus/params.sh') }}
@@ -177,7 +177,7 @@ jobs:
         run: bash scripts/smoke-test.sh
 
       - name: Exporter builds
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: exporter
           platforms: linux/amd64
