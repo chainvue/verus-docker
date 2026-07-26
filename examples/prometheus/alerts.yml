@@ -1,0 +1,79 @@
+# Alerts worth having on a Verus node. Tune the thresholds to your setup —
+# these are starting points, not universal truths.
+groups:
+  - name: verus-node
+    rules:
+      - alert: VerusNodeDown
+        # verus_up goes to 0 when the exporter is running but the daemon does
+        # not answer. `absent()` catches the case where the whole scrape target
+        # disappears, which the first expression alone would miss.
+        expr: verus_up == 0 or absent(verus_up)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Verus node {{ $labels.chain }} is not responding"
+          description: "The daemon has not answered getblockchaininfo for 5 minutes."
+
+      - alert: VerusHeightStuck
+        # Block height has not moved in 30 minutes. On a synced node this means
+        # the daemon is wedged; during initial sync it means sync has stalled.
+        expr: increase(verus_blocks[30m]) < 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Verus {{ $labels.chain }} block height is stuck"
+          description: "No new blocks in 30 minutes (currently {{ $value }})."
+
+      - alert: VerusNoPeers
+        # Zero peers means the node is isolated and cannot learn about blocks.
+        expr: sum by (chain) (verus_peers) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Verus {{ $labels.chain }} has no peers"
+          description: "Check egress firewall rules and that the P2P port is published."
+
+      - alert: VerusFewPeers
+        expr: sum by (chain) (verus_peers) < 3
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Verus {{ $labels.chain }} is peer starved"
+          description: "Fewer than 3 peers. Publish the P2P port to attract inbound connections."
+
+      - alert: VerusNotSynced
+        # Deliberately long: initial sync legitimately takes days on mainnet.
+        # This is for a node that WAS synced and fell behind.
+        expr: verus_sync_complete == 0
+        for: 6h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Verus {{ $labels.chain }} is not synced"
+          description: "Behind the tip for 6 hours ({{ $labels.chain }})."
+
+      - alert: VerusWalletLocked
+        # Only meaningful on a staking node: a locked wallet does not stake.
+        expr: verus_wallet_enabled == 1 and verus_wallet_unlocked == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Verus {{ $labels.chain }} wallet is locked"
+          description: "A locked wallet cannot stake. Ignore this on non-staking nodes."
+
+      - alert: VerusDiskFillingUp
+        # Requires node_exporter alongside this stack; harmless if absent.
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/"} 
+            / node_filesystem_size_bytes{mountpoint="/"} < 0.10
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Less than 10% disk free on {{ $labels.instance }}"
+          description: "Verus chain data grows continuously; a full disk corrupts the database."

@@ -1,0 +1,61 @@
+# Headless service — gives each StatefulSet pod a stable DNS name
+# (verus-0.verus-headless.<namespace>.svc.cluster.local).
+apiVersion: v1
+kind: Service
+metadata:
+  name: verus-headless
+  labels:
+    app.kubernetes.io/name: verus
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: verus
+  ports:
+    - name: p2p
+      port: 27485
+      targetPort: p2p
+    - name: rpc
+      port: 27486
+      targetPort: rpc
+---
+# Internal RPC service. ClusterIP only — never expose this with a LoadBalancer
+# or Ingress. The Verus RPC controls the wallet and has no rate limiting.
+#
+# publishNotReadyAddresses is false, so the service only routes to SYNCED pods
+# (that is what the readiness probe means here). An unsynced node would return
+# stale answers.
+apiVersion: v1
+kind: Service
+metadata:
+  name: verus-rpc
+  labels:
+    app.kubernetes.io/name: verus
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: verus
+  ports:
+    - name: rpc
+      port: 27486
+      targetPort: rpc
+---
+# P2P service. This one SHOULD be reachable from the internet: without inbound
+# peers the daemon is limited to a few outbound connections and sync is much
+# slower. Swap to LoadBalancer or NodePort to match your cluster.
+#
+# publishNotReadyAddresses matters here — a syncing node still needs peers.
+apiVersion: v1
+kind: Service
+metadata:
+  name: verus-p2p
+  labels:
+    app.kubernetes.io/name: verus
+spec:
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: verus
+  ports:
+    - name: p2p
+      port: 27485
+      targetPort: p2p

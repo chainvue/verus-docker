@@ -1,0 +1,27 @@
+# Restricts who may reach the RPC port. rpcallowip alone is coarse; this is the
+# enforcement layer. Requires a CNI that implements NetworkPolicy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: verus-rpc-restricted
+  labels:
+    app.kubernetes.io/name: verus
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: verus
+  policyTypes:
+    - Ingress
+  ingress:
+    # RPC: only from pods explicitly labelled as clients.
+    - from:
+        - podSelector:
+            matchLabels:
+              verus-client: "true"
+      ports:
+        - protocol: TCP
+          port: 27486
+    # P2P: from anywhere. A node with no inbound peers syncs badly.
+    - ports:
+        - protocol: TCP
+          port: 27485

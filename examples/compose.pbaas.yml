@@ -1,0 +1,149 @@
+# =============================================================================
+# VRSC plus two PBaaS chains, side by side.
+#
+# This is the pattern for adding ANY PBaaS chain: copy a block, change CHAIN
+# and the two ports, give it its own data volume. There is no allowlist.
+#
+#   cp .env.example .env
+#   # set VRSC_RPC_USER / VRSC_RPC_PASSWORD (see below)
+#   docker compose -f examples/compose.pbaas.yml up -d
+#
+# -----------------------------------------------------------------------------
+# READ THIS FIRST — why the VRSC service is not optional
+#
+# A PBaaS daemon does not read its chain definition from disk. On startup it
+# calls getcurrency on the Verus root chain over plain HTTP; if that fails it
+# exits with "Cannot find blockchain data". So every PBaaS chain needs a
+# reachable root node, and this project waits for one before starting verusd.
+#
+# Two consequences worth planning for:
+#
+#   1. The root node must be SYNCED, not merely running. On mainnet that means
+#      a full VRSC sync (~22 GB) before any PBaaS chain will start. Set
+#      ROOT_WAIT_TIMEOUT high, or bring the PBaaS services up afterwards.
+#   2. A public gateway such as https://api.verus.services CANNOT be the root.
+#      verusd speaks plain HTTP to a host:port pair and cannot use TLS.
+#
+# Credentials: the root node's RPC user/password must be known to the PBaaS
+# containers, so they are pinned here rather than auto-generated. Generate them
+# once and put them in .env:
+#
+#   echo "VRSC_RPC_USER=verus_$(openssl rand -hex 4)"    >> .env
+#   echo "VRSC_RPC_PASSWORD=$(openssl rand -hex 32)"     >> .env
+# =============================================================================
+
+name: verus-pbaas
+
+x-pbaas-common: &pbaas-common
+  image: ghcr.io/chainvue/verus-docker:latest
+  restart: unless-stopped
+  stop_grace_period: 120s
+  depends_on:
+    verus-mainnet:
+      # Only means "the daemon answers RPC". The entrypoint still waits for the
+      # root chain to finish syncing before it starts the PBaaS daemon.
+      condition: service_healthy
+  volumes:
+    - verus-params:/home/verus/.zcash-params
+  logging:
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+
+x-root-rpc: &root-rpc
+  ROOT_CHAIN: VRSC
+  ROOT_RPC_HOST: verus-mainnet
+  ROOT_RPC_PORT: "27486"
+  ROOT_RPC_USER: ${VRSC_RPC_USER:?set VRSC_RPC_USER in .env — see the header of this file}
+  ROOT_RPC_PASSWORD: ${VRSC_RPC_PASSWORD:?set VRSC_RPC_PASSWORD in .env — see the header of this file}
+  # A full mainnet sync can take a very long time. Raise this rather than
+  # letting the PBaaS containers restart-loop while they wait.
+  ROOT_WAIT_TIMEOUT: "86400"
+
+services:
+  # ---------------------------------------------------------------------------
+  # The root chain. Everything else depends on it.
+  # ---------------------------------------------------------------------------
+  verus-mainnet:
+    image: ghcr.io/chainvue/verus-docker:latest
+    container_name: verus-mainnet
+    restart: unless-stopped
+    stop_grace_period: 120s
+    environment:
+      CHAIN: VRSC
+      RPC_USER: ${VRSC_RPC_USER:?set VRSC_RPC_USER in .env}
+      RPC_PASSWORD: ${VRSC_RPC_PASSWORD:?set VRSC_RPC_PASSWORD in .env}
+      USE_BOOTSTRAP: "false"
+    ports:
+      - "27485:27485"
+    volumes:
+      - verus-data-vrsc:/home/verus/.komodo
+      - verus-params:/home/verus/.zcash-params
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--quiet"]
+      interval: 30s
+      timeout: 15s
+      start_period: 600s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # CHIPS. Ports must be pinned: a PBaaS chain's P2P port is derived by the
+  # daemon from the chain definition and is not predictable.
+  # ---------------------------------------------------------------------------
+  chips:
+    <<: *pbaas-common
+    container_name: verus-chips
+    environment:
+      <<: *root-rpc
+      CHAIN: chips
+      P2P_PORT: "22777"
+      RPC_PORT: "22778"
+    ports:
+      - "22777:22777"
+    volumes:
+      # Mount the .verus PARENT, not a chain directory: verusd creates
+      # pbaas/<hash>/ inside it using a hash it derives at runtime.
+      - verus-data-chips:/home/verus/.verus
+      - verus-params:/home/verus/.zcash-params
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
+  # ---------------------------------------------------------------------------
+  # vARRR. Same pattern — this is all it takes to add a chain.
+  # ---------------------------------------------------------------------------
+  varrr:
+    <<: *pbaas-common
+    container_name: verus-varrr
+    environment:
+      <<: *root-rpc
+      CHAIN: varrr
+      P2P_PORT: "20777"
+      RPC_PORT: "20778"
+    ports:
+      - "20777:20777"
+    volumes:
+      - verus-data-varrr:/home/verus/.verus
+      - verus-params:/home/verus/.zcash-params
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+
+volumes:
+  verus-data-vrsc:
+  verus-data-chips:
+  verus-data-varrr:
+  verus-params:
+    name: verus-params

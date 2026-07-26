@@ -1,0 +1,93 @@
+# =============================================================================
+# Monitoring overlay: exporter + Prometheus + Grafana with a provisioned
+# dashboard.
+#
+# This is an OVERLAY. Combine it with a node stack — it deliberately sets no
+# project name so it merges into whichever one you point it at:
+#
+#   docker compose \
+#     -f examples/compose.testnet.yml \
+#     -f examples/compose.monitoring.yml \
+#     up -d
+#
+#   Grafana:    http://localhost:3000   (admin / admin on first login)
+#   Prometheus: http://localhost:9090
+#
+# Both host ports are configurable if they clash with something else:
+#   GRAFANA_PORT=3001 PROMETHEUS_PORT=9091 docker compose ... up -d
+#
+# Pairing it with a different node stack means changing two things below:
+# the volume the exporter reads credentials from, and VERUS_RPC_PORT.
+# =============================================================================
+
+services:
+  verus-exporter:
+    build:
+      context: ../exporter
+    image: ghcr.io/chainvue/verus-exporter:latest
+    container_name: verus-exporter
+    restart: unless-stopped
+    depends_on:
+      verus:
+        condition: service_healthy
+    environment:
+      # Reach the node by its compose service name over the internal network.
+      VERUS_RPC_HOST: verus
+      VERUS_RPC_PORT: "18843" # VRSCTEST. Mainnet is 27486.
+
+      # Rather than duplicating credentials, read the file the entrypoint
+      # generated inside the node's data volume.
+      VERUS_CREDENTIALS_FILE: /data/vrsctest/rpc-credentials
+
+      # Wallet balances are off by default; a metrics endpoint is usually less
+      # protected than the RPC behind it.
+      # EXPORTER_EXPOSE_BALANCES: "true"
+    volumes:
+      # Read-only: the exporter needs the credentials file and nothing else.
+      - verus-data-vrsctest:/data:ro
+    expose:
+      - "9838"
+    # Not published to the host: Prometheus reaches it over the compose network.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: verus-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      # Host port is configurable: 9090 and 3000 are popular and often taken.
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: verus-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      # Anonymous access is off. Change the password on first login.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+
+volumes:
+  prometheus-data:
+  grafana-data:

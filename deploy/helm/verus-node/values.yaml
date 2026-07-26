@@ -1,0 +1,236 @@
+# =============================================================================
+# verus-node — default values
+#
+# Defaults target a mainnet node that is safe to leave running: no bootstrap,
+# no publicly reachable RPC, resources sized from a real production node.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Chain
+# -----------------------------------------------------------------------------
+
+# VRSC, VRSCTEST, or any PBaaS chain name / i-address. No allowlist.
+chain: VRSC
+
+# Root chain for a PBaaS deployment. Decides whether data lands in
+# /home/verus/.verus or /home/verus/.verustest.
+rootChain: VRSC
+
+# VRSC and VRSCTEST get their ports from the chain. PBaaS chains MUST set both:
+# the daemon derives an unpredictable P2P port from the chain definition, and
+# the chart refuses to guess.
+ports:
+  p2p: ""
+  rpc: ""
+
+# -----------------------------------------------------------------------------
+# Image
+# -----------------------------------------------------------------------------
+
+image:
+  repository: ghcr.io/chainvue/verus-docker
+  # Empty means the chart's appVersion. Pin an immutable tag in production.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Node behaviour
+# -----------------------------------------------------------------------------
+
+# A bootstrap is a large verified snapshot download that must complete BEFORE
+# the daemon starts. Off by default: it is a deliberate seeding operation, not
+# something you want happening on an unexpected pod reschedule.
+useBootstrap: false
+
+# Full transaction index. Costs significant disk. Must be decided before the
+# first start — changing it later forces a full reindex.
+txindex: true
+
+# Wallet-less node. Recommended for pure RPC infrastructure: a node that cannot
+# sign is a much smaller problem if it is compromised.
+disableWallet: false
+
+# Stake with the wallet balance. If you enable this, make sure nothing can
+# reach the RPC port — see docs/staking.md.
+enableStaking: false
+
+# Which networks may reach the RPC listener. Narrow this to your pod CIDR.
+# Never 0.0.0.0/0.
+rpcAllowIp: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
+# Passed to verusd verbatim.
+extraArgs: ""
+
+# Additional env vars, e.g. ROOT_RPC_HOST for a PBaaS chain.
+extraEnv: []
+#  - name: ROOT_RPC_HOST
+#    value: verus-mainnet
+#  - name: ROOT_RPC_PORT
+#    value: "27486"
+
+# -----------------------------------------------------------------------------
+# RPC credentials
+#
+# Leave both empty and the entrypoint generates random credentials on first
+# start, storing them in the data volume. Supply them (or an existing Secret)
+# when another workload needs to authenticate against this node.
+# -----------------------------------------------------------------------------
+
+rpcAuth:
+  existingSecret: ""
+  username: ""
+  password: ""
+
+# -----------------------------------------------------------------------------
+# Persistence
+# -----------------------------------------------------------------------------
+
+persistence:
+  data:
+    # Mainnet needs ~150Gi and grows continuously. Testnet ~50Gi.
+    # addressindex and spentindex are forced on by the daemon regardless of
+    # configuration, so budget for them.
+    size: 150Gi
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+
+  params:
+    # Zcash parameters, ~740 MB, identical for every chain. With ReadWriteMany
+    # storage you can point several nodes at one PVC.
+    size: 2Gi
+    storageClass: ""
+    accessModes: [ReadWriteOnce]
+
+# -----------------------------------------------------------------------------
+# Resources
+#
+# Measured on a production mainnet node: verusd wants roughly 12 GiB resident
+# at the chain tip. A memory limit below that gets it OOM-killed mid-flush,
+# which is how chain state gets corrupted.
+#
+# No CPU limit by default: throttling verusd during block validation slows sync
+# without protecting anything.
+# -----------------------------------------------------------------------------
+
+resources:
+  requests:
+    cpu: "1"
+    memory: 4Gi
+  limits:
+    memory: 16Gi
+
+# -----------------------------------------------------------------------------
+# Probes
+#
+# startup:   has it finished opening its databases? (slow on a large chain)
+# liveness:  is the daemon responding? A syncing node is healthy.
+# readiness: has it caught up? Only synced pods should serve RPC.
+# -----------------------------------------------------------------------------
+
+probes:
+  startup:
+    enabled: true
+    periodSeconds: 15
+    timeoutSeconds: 15
+    failureThreshold: 120 # 30 minutes of grace to come up
+  liveness:
+    enabled: true
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 5
+  readiness:
+    enabled: true
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 2
+
+# verusd flushes LevelDB on shutdown; a hard kill corrupts chain state. This is
+# a floor, not a target.
+terminationGracePeriodSeconds: 120
+
+# -----------------------------------------------------------------------------
+# Services
+# -----------------------------------------------------------------------------
+
+service:
+  rpc:
+    # ClusterIP only. Never put an Ingress or LoadBalancer in front of the Verus
+    # RPC: it controls the wallet and has no rate limiting.
+    type: ClusterIP
+    annotations: {}
+  p2p:
+    # Inbound peers materially improve sync speed. LoadBalancer or NodePort is
+    # a reasonable choice here.
+    type: ClusterIP
+    annotations: {}
+
+# Restricts RPC to pods labelled verus-client=true. Needs a CNI that
+# implements NetworkPolicy.
+networkPolicy:
+  enabled: false
+  clientPodSelector:
+    verus-client: "true"
+
+# -----------------------------------------------------------------------------
+# Monitoring
+# -----------------------------------------------------------------------------
+
+monitoring:
+  # Runs the Prometheus exporter as a sidecar.
+  enabled: false
+  image:
+    repository: ghcr.io/chainvue/verus-exporter
+    tag: latest
+    pullPolicy: IfNotPresent
+  port: 9838
+  # Balances are omitted by default: the metrics endpoint is usually less
+  # protected than the RPC behind it.
+  exposeBalances: false
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  serviceMonitor:
+    # Requires the Prometheus Operator CRDs.
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 20s
+    labels: {}
+
+# -----------------------------------------------------------------------------
+# Scheduling
+#
+# Verus nodes are disk-heavy and IOPS-sensitive. Pin them to nodes with fast
+# local storage rather than letting the scheduler place them anywhere.
+# -----------------------------------------------------------------------------
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

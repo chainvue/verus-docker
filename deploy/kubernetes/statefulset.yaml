@@ -1,0 +1,166 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: verus
+  labels:
+    app.kubernetes.io/name: verus
+    app.kubernetes.io/component: node
+spec:
+  serviceName: verus-headless
+  # A Verus node is not horizontally scalable: each replica is an independent
+  # full node with its own copy of the chain. Scale out only if you actually
+  # want N independent nodes, and expect N times the disk.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: verus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: verus
+        app.kubernetes.io/component: node
+    spec:
+      # verusd flushes LevelDB on shutdown. SIGKILL mid-flush corrupts chain
+      # state and forces a reindex that can take hours. 120s is a floor, not a
+      # target — raise it for a synced mainnet node.
+      terminationGracePeriodSeconds: 120
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        # Makes the mounted PVCs group-writable by the verus user, so the
+        # container never needs root to fix ownership.
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+
+      containers:
+        - name: verus
+          # Pin an immutable tag in production.
+          image: ghcr.io/chainvue/verus-docker:latest
+          imagePullPolicy: IfNotPresent
+
+          env:
+            - name: CHAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: verus-config
+                  key: CHAIN
+            - name: USE_BOOTSTRAP
+              valueFrom:
+                configMapKeyRef:
+                  name: verus-config
+                  key: USE_BOOTSTRAP
+            - name: TXINDEX
+              valueFrom:
+                configMapKeyRef:
+                  name: verus-config
+                  key: TXINDEX
+            # Allow the whole cluster pod CIDR to reach the RPC. Narrow this to
+            # your actual pod CIDR, and rely on a NetworkPolicy for real
+            # enforcement — rpcallowip is coarse.
+            - name: RPC_ALLOW_IP
+              valueFrom:
+                configMapKeyRef:
+                  name: verus-config
+                  key: RPC_ALLOW_IP
+            - name: RPC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: verus-rpc
+                  key: RPC_USER
+            - name: RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: verus-rpc
+                  key: RPC_PASSWORD
+
+          ports:
+            - name: p2p
+              containerPort: 27485
+              protocol: TCP
+            - name: rpc
+              containerPort: 27486
+              protocol: TCP
+
+          # Three probes, three different questions.
+          #
+          # startup:   "has it finished opening its databases?" Cold start on a
+          #            large chain is slow; without this, liveness would kill
+          #            the pod before it ever finished starting.
+          startupProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--quiet"]
+            periodSeconds: 15
+            timeoutSeconds: 15
+            # 15s x 120 = 30 minutes of grace to come up.
+            failureThreshold: 120
+
+          # liveness:  "is the daemon responding?" A node doing its initial sync
+          #            answers RPC and is healthy. Never make liveness depend on
+          #            sync state or you will restart-loop through every sync.
+          livenessProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--quiet"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 5
+
+          # readiness: "has it caught up?" Only a synced node should receive
+          #            RPC traffic — an unsynced one returns stale answers.
+          readinessProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--require-synced", "--quiet"]
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 2
+
+          # Measured on a production mainnet node: verusd wants roughly 12 GiB
+          # resident at the chain tip. A limit below that gets it OOM-killed
+          # mid-flush. Testnet is happy with 4-8 GiB.
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              # No CPU limit on purpose: throttling verusd during block
+              # validation slows sync without protecting anything. Use requests
+              # for scheduling and let it burst.
+              memory: 16Gi
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false # the daemon writes to its data dir
+            capabilities:
+              drop: ["ALL"]
+
+          volumeMounts:
+            - name: data
+              mountPath: /home/verus/.komodo
+            - name: params
+              mountPath: /home/verus/.zcash-params
+
+      volumes: []
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            # Mainnet needs ~150Gi and grows. Testnet ~50Gi. Note that
+            # addressindex and spentindex are forced on by the daemon and
+            # cannot be disabled, so budget for them.
+            storage: 150Gi
+        # storageClassName: fast-ssd   # IOPS matter far more than capacity
+
+    - metadata:
+        name: params
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            # The Zcash parameters are ~740 MB and identical for every chain.
+            # With ReadWriteMany storage you can share one PVC across nodes.
+            storage: 2Gi

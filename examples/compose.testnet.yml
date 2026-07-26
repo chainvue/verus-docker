@@ -1,0 +1,74 @@
+# =============================================================================
+# Verus TESTNET node — the quickest way to get a working RPC endpoint.
+#
+#   docker compose -f examples/compose.testnet.yml up -d
+#   ./scripts/verus-cli.sh -f examples/compose.testnet.yml getinfo
+#
+# The RPC answers within about a minute of first start (most of that is the
+# one-time ~740 MB Zcash parameter download). The chain then syncs in the
+# background — a node that is still syncing is healthy, not broken.
+# =============================================================================
+
+name: verus-testnet
+
+services:
+  verus:
+    image: ghcr.io/chainvue/verus-docker:latest
+    container_name: verus-testnet
+    restart: unless-stopped
+
+    # verusd flushes its databases on shutdown. Killing it early corrupts chain
+    # state and forces a multi-hour reindex on the next start. Never lower this.
+    stop_grace_period: 120s
+
+    environment:
+      CHAIN: VRSCTEST
+
+      # Syncing testnet from genesis takes hours. A bootstrap is a verified
+      # snapshot that skips most of it — but it is a ~6.6 GB download that must
+      # finish BEFORE the daemon starts, so the RPC is unavailable until it is
+      # done. Leave it off to get an endpoint immediately; turn it on when you
+      # need a caught-up node.
+      #
+      # It only ever runs on an empty data directory, and the published SHA-256
+      # is verified before anything is extracted.
+      USE_BOOTSTRAP: "false"
+
+    ports:
+      # P2P — publish this. Without inbound connections the daemon is limited to
+      # a handful of outbound peers and initial sync gets noticeably slower.
+      - "18842:18842"
+
+      # RPC — deliberately NOT published.
+      #
+      # The Verus RPC controls the wallet and has no rate limiting. Reach it
+      # from another container on this network, or via `docker compose exec`.
+      # If you genuinely need it on the host, bind to loopback only:
+      # - "127.0.0.1:18843:18843"
+
+    volumes:
+      - verus-data-vrsctest:/home/verus/.komodo
+      - verus-params:/home/verus/.zcash-params
+
+    # The image ships a HEALTHCHECK already (liveness: is the daemon
+    # responding?). It is restated here so the start period is visible.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--quiet"]
+      interval: 30s
+      timeout: 15s
+      start_period: 180s
+      retries: 5
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  verus-data-vrsctest:
+
+  # Fixed name so every stack on this host shares one copy of the ~740 MB
+  # Zcash parameters instead of downloading them again per chain.
+  verus-params:
+    name: verus-params

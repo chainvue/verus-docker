@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verus-config
+  labels:
+    app.kubernetes.io/name: verus
+data:
+  # VRSC, VRSCTEST, or any PBaaS chain name / i-address.
+  CHAIN: "VRSC"
+
+  # A bootstrap is a large verified download that must finish before the daemon
+  # starts. Leave it off unless you are seeding a fresh volume deliberately.
+  USE_BOOTSTRAP: "false"
+
+  TXINDEX: "1"
+
+  # Narrow this to your actual pod CIDR. rpcallowip is coarse-grained; use the
+  # bundled NetworkPolicy for real enforcement.
+  RPC_ALLOW_IP: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"

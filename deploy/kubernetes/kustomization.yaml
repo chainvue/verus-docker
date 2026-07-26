@@ -1,0 +1,32 @@
+# Plain manifests, kustomize-friendly.
+#
+#   kubectl apply -k deploy/kubernetes/
+#
+# To run testnet instead of mainnet, overlay a patch:
+#
+#   # overlays/testnet/kustomization.yaml
+#   resources: [../../deploy/kubernetes]
+#   configMapGenerator:
+#     - name: verus-config
+#       behavior: merge
+#       literals: [CHAIN=VRSCTEST]
+#
+# The container ports stay 27485/27486 in these manifests; for testnet set
+# RPC_PORT/P2P_PORT in the ConfigMap and patch the containerPorts to match.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# includeSelectors is false on purpose: a StatefulSet's selector is immutable,
+# so labels that flow into it can never be changed afterwards.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: verus
+    includeSelectors: false
+
+resources:
+  - configmap.yaml
+  - service.yaml
+  - statefulset.yaml
+  - networkpolicy.yaml
+  # secret.example.yaml is intentionally NOT included — create the real Secret
+  # out of band. See its header.

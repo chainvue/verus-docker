@@ -1,0 +1,20 @@
+apiVersion: v2
+name: verus-node
+description: Production-ready Verus (VRSC) full node — mainnet, testnet, or any PBaaS chain
+type: application
+
+# Chart version. Bumped independently of the app.
+version: 0.1.0
+
+# The upstream verusd version this chart defaults to.
+appVersion: "1.2.17-2"
+
+keywords: [verus, vrsc, pbaas, blockchain, full-node]
+home: https://github.com/chainvue/verus-docker
+sources:
+  - https://github.com/chainvue/verus-docker
+maintainers:
+  - name: The verus-docker contributors
+    url: https://github.com/chainvue/verus-docker
+annotations:
+  category: Blockchain

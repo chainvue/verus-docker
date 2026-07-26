@@ -1,0 +1,93 @@
+# =============================================================================
+# Verus MAINNET node — production shape.
+#
+#   docker compose -f examples/compose.mainnet.yml up -d
+#
+# Read docs/production.md before running this somewhere that matters. The
+# comments below cover the decisions that actually bite people.
+# =============================================================================
+
+name: verus-mainnet
+
+services:
+  verus:
+    # Pin an immutable tag in production. `latest` moves, and an unattended
+    # image change on a staking node is not something you want to discover
+    # from a monitoring alert.
+    #   image: ghcr.io/chainvue/verus-docker:v1.2.17-2-r1
+    image: ghcr.io/chainvue/verus-docker:latest
+    container_name: verus-mainnet
+    restart: unless-stopped
+
+    # A synced mainnet node can spend well over a minute flushing on shutdown.
+    # 120s is the floor; the reference bare-metal deployment this project draws
+    # on used 900s. If you see "Corruption" or a forced reindex after a restart,
+    # this value was too low.
+    stop_grace_period: 120s
+
+    environment:
+      CHAIN: VRSC
+
+      # ~22 GB verified download, and it must complete before the daemon starts.
+      # Only ever runs on an empty data directory. The alternative is a sync
+      # from genesis measured in days.
+      USE_BOOTSTRAP: "false"
+
+      # Full transaction index. Costs meaningful disk. Turn it off BEFORE the
+      # first start if this node only stakes — changing it later needs a
+      # full reindex.
+      TXINDEX: "1"
+
+      # A node that never signs anything is a much smaller problem when it is
+      # compromised. Uncomment for pure RPC infrastructure.
+      # DISABLE_WALLET: "true"
+
+    ports:
+      # P2P — publish it. Inbound peers materially improve sync and relay.
+      - "27485:27485"
+
+      # RPC — NOT published, on purpose. See compose.testnet.yml for why.
+      # Loopback-only opt-in:
+      # - "127.0.0.1:27486:27486"
+
+    volumes:
+      - verus-data-vrsc:/home/verus/.komodo
+      - verus-params:/home/verus/.zcash-params
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--quiet"]
+      interval: 30s
+      timeout: 15s
+      # Mainnet takes a long while to open its databases on a cold start.
+      start_period: 600s
+      retries: 5
+
+    # Honest numbers from a production mainnet deployment: verusd wants roughly
+    # 12 GiB resident at the chain tip. Limiting it below that gets the process
+    # OOM-killed mid-flush, which is exactly how chain state gets corrupted.
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+
+    # verusd opens a lot of files: LevelDB plus one per peer.
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  # Plan for ~150 GB and growth. IOPS matter more than raw capacity here —
+  # initial sync on spinning disks is painful. Use SSD/NVMe.
+  verus-data-vrsc:
+
+  verus-params:
+    name: verus-params

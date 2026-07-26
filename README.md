@@ -2,10 +2,10 @@
 
 **Production-ready Docker images for Verus — mainnet, testnet, and every PBaaS chain.**
 
-> **Status: Phase 1 (core image).** The image, entrypoint, CLI wrapper and health
-> probes are complete and tested. Compose examples, Kubernetes manifests, the
-> Helm chart, the metrics exporter and the full documentation set are landing
-> next. See [Roadmap](#roadmap).
+> **Status: Phase 2.** The image, Compose stacks, Kubernetes manifests, Helm
+> chart, Prometheus exporter and Grafana dashboard are complete and tested.
+> Release automation and the full documentation set are landing next.
+> See [Roadmap](#roadmap).
 
 ---
 
@@ -14,16 +14,26 @@
 A Verus **testnet** node with a working RPC endpoint:
 
 ```bash
+git clone https://github.com/chainvue/verus-docker && cd verus-docker
+
+docker compose -f examples/compose.testnet.yml up -d
+
+# Watch it come up (it fetches ~740 MB of Zcash parameters once)
+docker compose -f examples/compose.testnet.yml logs -f
+
+# Talk to it — no flags, no config
+./scripts/verus-cli.sh -f examples/compose.testnet.yml getinfo
+```
+
+Prefer plain Docker?
+
+```bash
 docker run -d --name verus \
   -e CHAIN=VRSCTEST \
   -v verus-data:/home/verus/.komodo \
   -v verus-params:/home/verus/.zcash-params \
   ghcr.io/chainvue/verus-docker:latest
 
-# Watch it come up (it fetches ~740 MB of Zcash parameters once)
-docker logs -f verus
-
-# Talk to it — no flags, no config
 docker exec verus verus getinfo
 ```
 
@@ -66,6 +76,20 @@ curl -s --user "$RPC_USER:$RPC_PASSWORD" \
 
 Any chain name or i-address works — there is no whitelist. PBaaS chains do need
 a reachable Verus root node; see [PBaaS chains](#pbaas-chains-read-this-first).
+A complete VRSC + CHIPS + vARRR stack is in
+[`examples/compose.pbaas.yml`](examples/compose.pbaas.yml).
+
+### Add monitoring
+
+```bash
+docker compose \
+  -f examples/compose.testnet.yml \
+  -f examples/compose.monitoring.yml up -d
+```
+
+Grafana on <http://localhost:3000> (admin/admin) with a provisioned dashboard,
+Prometheus on <http://localhost:9090>, and a
+[purpose-built exporter](exporter/README.md).
 
 ---
 
@@ -167,6 +191,22 @@ Two caveats worth knowing up front:
 
 ---
 
+## Deployments
+
+| Where | What |
+| --- | --- |
+| [`examples/compose.testnet.yml`](examples/compose.testnet.yml) | Quickstart testnet node |
+| [`examples/compose.mainnet.yml`](examples/compose.mainnet.yml) | Mainnet, production-shaped |
+| [`examples/compose.pbaas.yml`](examples/compose.pbaas.yml) | VRSC plus two PBaaS chains |
+| [`examples/compose.staking.yml`](examples/compose.staking.yml) | Staking node, RPC deliberately unreachable |
+| [`examples/compose.monitoring.yml`](examples/compose.monitoring.yml) | Exporter + Prometheus + Grafana overlay |
+| [`deploy/kubernetes/`](deploy/kubernetes/) | Plain manifests, kustomize-friendly |
+| [`deploy/helm/verus-node/`](deploy/helm/verus-node/) | Helm chart |
+
+In Kubernetes the pod becomes **Ready only once the chain is synced** — readiness
+means "safe to serve RPC". Liveness is a separate probe, so a node doing its
+initial sync is never restarted out from under itself.
+
 ## Building locally
 
 ```bash
@@ -183,7 +223,7 @@ make down
 ## Roadmap
 
 - [x] **Phase 1** — core image, entrypoint, CLI wrapper, health probes
-- [ ] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
+- [x] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
 - [ ] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
 - [ ] **Phase 4** — full documentation set
 - [ ] **Phase 5** — community and governance files

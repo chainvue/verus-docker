@@ -1,0 +1,80 @@
+{{- $p2p := include "verus-node.p2pPort" . -}}
+{{- $rpc := include "verus-node.rpcPort" . -}}
+# Headless service: stable per-pod DNS for the StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verus-node.fullname" . }}-headless
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "verus-node.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: p2p
+      port: {{ $p2p | int }}
+      targetPort: p2p
+    - name: rpc
+      port: {{ $rpc | int }}
+      targetPort: rpc
+---
+# RPC. ClusterIP only — never front this with an Ingress or LoadBalancer.
+# Routes only to READY (i.e. synced) pods, so clients never get stale answers.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verus-node.fullname" . }}-rpc
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+  {{- with .Values.service.rpc.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.rpc.type }}
+  selector:
+    {{- include "verus-node.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: rpc
+      port: {{ $rpc | int }}
+      targetPort: rpc
+---
+# P2P. publishNotReadyAddresses is true on purpose: a node that is still
+# syncing needs peers precisely because it is still syncing.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verus-node.fullname" . }}-p2p
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+  {{- with .Values.service.p2p.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.p2p.type }}
+  publishNotReadyAddresses: true
+  selector:
+    {{- include "verus-node.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: p2p
+      port: {{ $p2p | int }}
+      targetPort: p2p
+{{- if .Values.monitoring.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verus-node.fullname" . }}-metrics
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "verus-node.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.monitoring.port | int }}
+      targetPort: metrics
+{{- end }}

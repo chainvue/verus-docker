@@ -1,0 +1,107 @@
+# =============================================================================
+# Verus STAKING node.
+#
+#   docker compose -f examples/compose.staking.yml up -d
+#
+# Read docs/staking.md before using this. A staking node is different from an
+# RPC node in one way that matters: it holds spendable keys and it must keep
+# the wallet unlocked to stake. That changes the threat model completely.
+#
+# -----------------------------------------------------------------------------
+# THE TWO RULES
+#
+#   1. NEVER expose the RPC port. Not to the host, not to a reverse proxy, not
+#      "temporarily". Anyone who reaches an unlocked staking wallet's RPC can
+#      empty it. There is no RPC rate limiting and no second factor. This file
+#      publishes no RPC port and you should not add one.
+#
+#   2. BACK UP wallet.dat, and verify the backup restores. Chain data is
+#      rebuildable from the network; your keys are not. Back it up before you
+#      fund the wallet, and again after generating any new address.
+#
+#      docker compose -f examples/compose.staking.yml exec verus \
+#        cp /home/verus/.komodo/VRSC/wallet.dat /home/verus/.komodo/VRSC/wallet.backup.dat
+#      docker compose -f examples/compose.staking.yml cp \
+#        verus:/home/verus/.komodo/VRSC/wallet.backup.dat ./wallet-$(date +%F).dat
+#
+#      Then move that file somewhere off this host and encrypt it.
+# =============================================================================
+
+name: verus-staking
+
+services:
+  verus:
+    # Pin an immutable tag. An unattended image change under a staking wallet is
+    # a bad surprise; upgrade deliberately after reading the release notes.
+    #   image: ghcr.io/chainvue/verus-docker:v1.2.17-2-r1
+    image: ghcr.io/chainvue/verus-docker:latest
+    container_name: verus-staking
+    restart: unless-stopped
+
+    # Staking nodes get restarted for upgrades more often than most. Give the
+    # daemon room to flush; a corrupted chainstate means downtime and lost
+    # staking time.
+    stop_grace_period: 120s
+
+    environment:
+      CHAIN: VRSC
+
+      # Stake with the wallet balance (-mint).
+      ENABLE_STAKING: "true"
+
+      # A staking node usually does not need a full transaction index. Turning
+      # it off saves substantial disk — but it must be decided BEFORE the first
+      # start, because changing it later forces a full reindex.
+      TXINDEX: "0"
+
+      # Keep the RPC listener bound to the container's own network. Combined
+      # with publishing no port at all, this is defence in depth.
+      RPC_ALLOW_IP: auto
+
+      # You have a backup routine and do not need the reminder every restart.
+      # WALLET_WARNING: "false"
+
+    ports:
+      # P2P only. Staking benefits from good connectivity — you want to receive
+      # and relay blocks promptly.
+      - "27485:27485"
+
+      # NO RPC PORT. See rule 1 above. Use `docker compose exec` for CLI access:
+      #   docker compose -f examples/compose.staking.yml exec verus verus getwalletinfo
+
+    volumes:
+      - verus-data-staking:/home/verus/.komodo
+      - verus-params:/home/verus/.zcash-params
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--quiet"]
+      interval: 30s
+      timeout: 15s
+      start_period: 600s
+      retries: 5
+
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  # This volume contains wallet.dat. Treat it as the most valuable thing on the
+  # host: snapshot it, and keep an off-host copy of the wallet specifically.
+  verus-data-staking:
+
+  verus-params:
+    name: verus-params

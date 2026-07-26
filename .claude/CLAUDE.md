@@ -12,8 +12,12 @@ We containerize the upstream `verusd` daemon from https://github.com/VerusCoin/V
 
 ```
 Dockerfile              # Multi-stage build; VERUS_VERSION arg is the ONLY place the upstream version lives
-entrypoint.sh           # Chain selection, config generation, bootstrap, params, signal handling
-healthcheck.sh          # RPC-based health/sync probing (liveness vs readiness semantics)
+rootfs/                 # Copied verbatim into the image (COPY rootfs/ /), so a file's
+                        # repo path IS its in-container path:
+  usr/local/bin/entrypoint.sh    # Chain selection, config generation, bootstrap, params, signals
+  usr/local/bin/healthcheck.sh   # RPC health/sync probing (liveness vs readiness semantics)
+  usr/local/bin/verus            # CLI wrapper that injects -chain= (and creds for PBaaS)
+  usr/local/lib/verus/*.sh       # Sourced libraries: common, chain, config, params, bootstrap, pbaas
 scripts/                # Host-side helpers (verus-cli.sh wrapper, env-var doc checker, etc.)
 chains/                 # OPTIONAL per-chain convenience metadata (bootstrap URLs, ports). Never a whitelist.
 examples/               # compose.*.yml stacks + .env.example + examples/rpc/ (curl/node/python snippets)

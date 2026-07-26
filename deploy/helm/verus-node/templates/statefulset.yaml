@@ -1,0 +1,231 @@
+{{- $p2p := include "verus-node.p2pPort" . -}}
+{{- $rpc := include "verus-node.rpcPort" . -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "verus-node.fullname" . }}
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "verus-node.fullname" . }}-headless
+  # Not horizontally scalable: each replica is an independent full node with
+  # its own copy of the chain.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "verus-node.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "verus-node.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        # Roll the pod when configuration changes.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ default (include "verus-node.fullname" .) .Values.serviceAccount.name }}
+      {{- end }}
+
+      # verusd flushes LevelDB on shutdown. A hard kill mid-flush corrupts
+      # chain state and forces a reindex measured in hours.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      containers:
+        - name: verus
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+
+          env:
+            - name: CHAIN
+              value: {{ .Values.chain | quote }}
+            - name: ROOT_CHAIN
+              value: {{ .Values.rootChain | quote }}
+            - name: P2P_PORT
+              value: {{ $p2p | quote }}
+            - name: RPC_PORT
+              value: {{ $rpc | quote }}
+            - name: USE_BOOTSTRAP
+              value: {{ .Values.useBootstrap | quote }}
+            - name: TXINDEX
+              value: {{ ternary "1" "0" .Values.txindex | quote }}
+            - name: DISABLE_WALLET
+              value: {{ .Values.disableWallet | quote }}
+            - name: ENABLE_STAKING
+              value: {{ .Values.enableStaking | quote }}
+            - name: RPC_ALLOW_IP
+              value: {{ .Values.rpcAllowIp | quote }}
+            {{- with .Values.extraArgs }}
+            - name: EXTRA_ARGS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if or .Values.rpcAuth.existingSecret .Values.rpcAuth.username }}
+            - name: RPC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "verus-node.secretName" . }}
+                  key: RPC_USER
+            - name: RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "verus-node.secretName" . }}
+                  key: RPC_PASSWORD
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+
+          ports:
+            - name: p2p
+              containerPort: {{ $p2p | int }}
+              protocol: TCP
+            - name: rpc
+              containerPort: {{ $rpc | int }}
+              protocol: TCP
+
+          {{- if .Values.probes.startup.enabled }}
+          # "Has it finished opening its databases?" Without this, liveness
+          # would kill the pod before a cold start on a large chain completes.
+          startupProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--quiet"]
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+
+          {{- if .Values.probes.liveness.enabled }}
+          # "Is the daemon responding?" A syncing node is healthy — never make
+          # liveness depend on sync state or you restart-loop through sync.
+          livenessProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--quiet"]
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+
+          {{- if .Values.probes.readiness.enabled }}
+          # "Has it caught up?" Only synced pods should serve RPC.
+          readinessProbe:
+            exec:
+              command: ["/usr/local/bin/healthcheck.sh", "--require-synced", "--quiet"]
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          volumeMounts:
+            - name: data
+              mountPath: {{ include "verus-node.dataMountPath" . }}
+            - name: params
+              mountPath: /home/verus/.zcash-params
+
+        {{- if .Values.monitoring.enabled }}
+        - name: exporter
+          image: "{{ .Values.monitoring.image.repository }}:{{ .Values.monitoring.image.tag }}"
+          imagePullPolicy: {{ .Values.monitoring.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: CHAIN
+              value: {{ .Values.chain | quote }}
+            - name: VERUS_RPC_HOST
+              value: "127.0.0.1"
+            - name: VERUS_RPC_PORT
+              value: {{ $rpc | quote }}
+            - name: EXPORTER_PORT
+              value: {{ .Values.monitoring.port | quote }}
+            - name: EXPORTER_EXPOSE_BALANCES
+              value: {{ .Values.monitoring.exposeBalances | quote }}
+            {{- if or .Values.rpcAuth.existingSecret .Values.rpcAuth.username }}
+            - name: VERUS_RPC_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "verus-node.secretName" . }}
+                  key: RPC_USER
+            - name: VERUS_RPC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "verus-node.secretName" . }}
+                  key: RPC_PASSWORD
+            {{- else }}
+            # No Secret supplied, so the entrypoint generated credentials into
+            # the data volume. Read them from there.
+            - name: VERUS_CREDENTIALS_FILE
+              value: {{ printf "%s/%s/rpc-credentials" (include "verus-node.dataMountPath" .) (eq (upper .Values.chain) "VRSCTEST" | ternary "vrsctest" .Values.chain) | quote }}
+            {{- end }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.monitoring.port | int }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.monitoring.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ include "verus-node.dataMountPath" . }}
+              readOnly: true
+        {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.data.accessModes | nindent 10 }}
+        {{- with .Values.persistence.data.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.data.size }}
+    - metadata:
+        name: params
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.params.accessModes | nindent 10 }}
+        {{- with .Values.persistence.params.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.params.size }}

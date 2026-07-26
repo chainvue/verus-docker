@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "verus-node.fullname" . }}
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+data:
+  # Informational: the StatefulSet passes configuration via env vars. This
+  # ConfigMap exists so `kubectl describe` shows the effective settings and so
+  # a change here rolls the pod (see the checksum annotation).
+  chain: {{ .Values.chain | quote }}
+  rootChain: {{ .Values.rootChain | quote }}
+  p2pPort: {{ include "verus-node.p2pPort" . | quote }}
+  rpcPort: {{ include "verus-node.rpcPort" . | quote }}
+  useBootstrap: {{ .Values.useBootstrap | quote }}
+  txindex: {{ .Values.txindex | quote }}
+  disableWallet: {{ .Values.disableWallet | quote }}
+  enableStaking: {{ .Values.enableStaking | quote }}
+  rpcAllowIp: {{ .Values.rpcAllowIp | quote }}

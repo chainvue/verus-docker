@@ -1,0 +1,34 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $p2p := include "verus-node.p2pPort" . -}}
+{{- $rpc := include "verus-node.rpcPort" . -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "verus-node.fullname" . }}
+  labels:
+    {{- include "verus-node.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "verus-node.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # RPC: only from explicitly labelled client pods.
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.clientPodSelector | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ $rpc | int }}
+    # P2P: from anywhere. A node with no inbound peers syncs badly.
+    - ports:
+        - protocol: TCP
+          port: {{ $p2p | int }}
+{{- if .Values.monitoring.enabled }}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.monitoring.port | int }}
+{{- end }}
+{{- end }}

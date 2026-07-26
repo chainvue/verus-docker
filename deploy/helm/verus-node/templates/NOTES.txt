@@ -1,0 +1,29 @@
+{{ include "verus-node.fullname" . }} is installing chain {{ .Values.chain }}.
+
+Watch it come up:
+
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+The pod becomes READY only once the chain is fully synced. That is intentional:
+readiness means "safe to serve RPC". Until then it is RUNNING but not READY,
+which is the normal state during initial sync and can last hours or days.
+
+Follow progress:
+
+  kubectl -n {{ .Release.Namespace }} exec -it {{ include "verus-node.fullname" . }}-0 -c verus -- healthcheck.sh
+
+Run a CLI command:
+
+  kubectl -n {{ .Release.Namespace }} exec -it {{ include "verus-node.fullname" . }}-0 -c verus -- verus getinfo
+
+{{ if not (or .Values.rpcAuth.existingSecret .Values.rpcAuth.username) -}}
+RPC credentials were generated on first start and written into the data volume:
+
+  kubectl -n {{ .Release.Namespace }} exec {{ include "verus-node.fullname" . }}-0 -c verus -- \
+    cat {{ include "verus-node.dataMountPath" . }}/{{ .Values.chain }}/rpc-credentials
+{{- end }}
+
+{{ if .Values.enableStaking -}}
+WARNING: staking is enabled. This pod holds spendable keys. Make sure nothing
+can reach its RPC port, and that you have a tested wallet.dat backup.
+{{- end }}

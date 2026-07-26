@@ -1,0 +1,353 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "Verus Node",
+  "uid": "verus-node",
+  "tags": ["verus", "blockchain"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "chain",
+        "label": "Chain",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+        "query": "label_values(verus_up, chain)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Status",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Node up",
+      "description": "0 means the exporter is running but the daemon is not answering RPC.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [
+        { "expr": "verus_up{chain=~\"$chain\"}", "legendFormat": "{{chain}}", "refId": "A" }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red", "index": 0 },
+                "1": { "text": "UP", "color": "green", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Synced",
+      "description": "Uses the same definition as healthcheck.sh --require-synced.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [
+        {
+          "expr": "verus_sync_complete{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "SYNCING", "color": "yellow", "index": 0 },
+                "1": { "text": "SYNCED", "color": "green", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Block height",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 8, "y": 1 },
+      "targets": [
+        { "expr": "verus_blocks{chain=~\"$chain\"}", "legendFormat": "{{chain}}", "refId": "A" }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Peers",
+      "description": "Zero peers means the node is isolated. Publish the P2P port.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 13, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum by (chain) (verus_peers{chain=~\"$chain\"})",
+          "legendFormat": "{{chain}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "green", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Version",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 4, "w": 7, "x": 17, "y": 1 },
+      "targets": [
+        {
+          "expr": "verus_version_info{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} — {{version}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "name",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Sync",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Blocks vs headers",
+      "description": "A widening gap means the node is falling behind the network.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "verus_blocks{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} blocks",
+          "refId": "A"
+        },
+        {
+          "expr": "verus_headers{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} headers",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Verification progress",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "verus_verification_progress{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Blocks added per hour",
+      "description": "Flat means sync has stalled — the signal behind the VerusHeightStuck alert.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "increase(verus_blocks{chain=~\"$chain\"}[1h])",
+          "legendFormat": "{{chain}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Peers by direction",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "verus_peers{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} {{direction}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 20, "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "title": "Network, mempool and wallet",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Mempool",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 23 },
+      "targets": [
+        {
+          "expr": "verus_mempool_txs{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} txs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network traffic",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 23 },
+      "targets": [
+        {
+          "expr": "rate(verus_net_bytes_received_total{chain=~\"$chain\"}[5m])",
+          "legendFormat": "{{chain}} in",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(verus_net_bytes_sent_total{chain=~\"$chain\"}[5m])",
+          "legendFormat": "{{chain}} out",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Wallet unlocked (staking)",
+      "description": "A locked wallet does not stake. Meaningless on wallet-less nodes.",
+      "datasource": { "type": "prometheus", "uid": "verus-prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 23 },
+      "targets": [
+        {
+          "expr": "verus_wallet_unlocked{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} unlocked",
+          "refId": "A"
+        },
+        {
+          "expr": "verus_wallet_enabled{chain=~\"$chain\"}",
+          "legendFormat": "{{chain}} wallet enabled",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 20 }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
