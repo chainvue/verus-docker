@@ -2,10 +2,9 @@
 
 **Production-ready Docker images for Verus — mainnet, testnet, and every PBaaS chain.**
 
-> **Status: Phase 2.** The image, Compose stacks, Kubernetes manifests, Helm
-> chart, Prometheus exporter and Grafana dashboard are complete and tested.
-> Release automation and the full documentation set are landing next.
-> See [Roadmap](#roadmap).
+> **Status: Phase 3.** Image, deployment manifests, monitoring and release
+> automation are complete. The full documentation set and community files are
+> landing next. See [Roadmap](#roadmap).
 
 ---
 
@@ -107,6 +106,37 @@ Prometheus on <http://localhost:9090>, and a
 
 ---
 
+## Image tags
+
+```
+v1.2.17-2-r1
+└──┬─────┘ └┬┘
+   │        └── image revision: our changes, same daemon
+   └─────────── the upstream VerusCoin release
+```
+
+| Tag | Moves? | Use it if... |
+| --- | --- | --- |
+| `v1.2.17-2-r1` | **Never** | You run this in production. Immutable — always these exact bits. |
+| `1.2.17-2` | Yes | You want image fixes for one daemon version, but upgrade the daemon deliberately. |
+| `latest` | Yes | You are evaluating or developing. **Not** for a staking node. |
+
+`-rN` increments when the image changes but the daemon does not — a base image
+security rebuild, an entrypoint fix. It resets to `r1` on every daemon upgrade.
+
+Every release is built only by CI from a git tag, signed with cosign keyless,
+and ships an SPDX SBOM:
+
+```bash
+cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
+  --certificate-identity-regexp 'https://github.com/chainvue/verus-docker/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Release process and automation: [`docs/maintainers/releasing.md`](docs/maintainers/releasing.md).
+
+---
+
 ## Configuration
 
 Every variable is optional. Full reference with commentary: [`.env.example`](.env.example).
@@ -123,15 +153,23 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `IDINDEX`, `TIMESTAMPINDEX`, `INSIGHT_EXPLORER` | `false` | Applied at config creation only; changing later needs `-reindex`. |
 | `DISABLE_WALLET` | `false` | Wallet-less infrastructure node. |
 | `ENABLE_STAKING` | `false` | Stake with `-mint`. Keep RPC private. |
+| `WALLET_WARNING` | `true` | Set `false` to silence the wallet-backup reminder on start. |
 | `USE_BOOTSTRAP` | `false` | Verified chain snapshot, first run only. |
 | `BOOTSTRAP_URL` | per chain | Override. A `.sha256sum` sidecar must exist. |
 | `BOOTSTRAP_INSECURE_TLS` | `false` | Skip cert validation (checksum still enforced). |
 | `PARAMS_SOURCE` | `https://verus.io/zcparams` | Mirror for the Zcash parameters. |
-| `ROOT_RPC_HOST` / `_PORT` / `_USER` / `_PASSWORD` | — | Root node for PBaaS chains. |
-| `ROOT_WAIT_TIMEOUT` | `900` | Seconds to wait for the root chain. |
+| `PARAMS_VERIFY_EXISTING` | `false` | Re-hash already-downloaded parameters on every start. Slow. |
+| `ROOT_RPC_URL` | — | Root node as a URL, e.g. `http://vrsc:27486`. `https://` cannot work — see below. |
+| `ROOT_RPC_HOST` | — | Root node host for PBaaS chains. |
+| `ROOT_RPC_PORT` | per root chain | Root node RPC port. |
+| `ROOT_RPC_USER` | — | Root node RPC user. |
+| `ROOT_RPC_PASSWORD` | — | Root node RPC password. |
+| `ROOT_WAIT_TIMEOUT` | `900` | Seconds to wait for the root chain to become usable. |
+| `ROOT_MIN_PROGRESS` | `0.999` | How synced the root chain must be before a PBaaS chain starts. |
 | `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind tip still counted as synced. |
 | `MAX_CONNECTIONS` | daemon default | Cap peers. Lowering it slows initial sync. |
 | `EXTRA_ARGS` | — | Passed to `verusd` verbatim. |
+| `RPC_TIMEOUT` | `60` | Timeout in seconds for the entrypoint's own RPC calls. |
 | `DEBUG` | `false` | Verbose entrypoint logging. |
 
 > **Note:** `addressindex` and `spentindex` are **not** configurable. verusd
@@ -224,7 +262,7 @@ make down
 
 - [x] **Phase 1** — core image, entrypoint, CLI wrapper, health probes
 - [x] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
-- [ ] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
+- [x] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
 - [ ] **Phase 4** — full documentation set
 - [ ] **Phase 5** — community and governance files
 

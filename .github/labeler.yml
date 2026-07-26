@@ -1,0 +1,28 @@
+# Path-based PR labels. Consumed by .github/workflows/labeler.yml.
+image:
+  - changed-files:
+      - any-glob-to-any-file: ["Dockerfile", "rootfs/**"]
+
+exporter:
+  - changed-files:
+      - any-glob-to-any-file: "exporter/**"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md", "docs/**"]
+
+compose:
+  - changed-files:
+      - any-glob-to-any-file: "examples/**"
+
+kubernetes:
+  - changed-files:
+      - any-glob-to-any-file: "deploy/**"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", "scripts/**", "Makefile"]
+
+chain-support:
+  - changed-files:
+      - any-glob-to-any-file: "chains/**"

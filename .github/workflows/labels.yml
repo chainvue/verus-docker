@@ -1,0 +1,26 @@
+name: Sync labels
+
+# Keeps the repository's labels in step with .github/labels.yml, so the
+# path-based labeler always has labels to apply.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/labels.yml
+      - .github/workflows/labels.yml
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crazy-max/ghaction-github-labeler@v5
+        with:
+          yaml-file: .github/labels.yml
+          # Never delete labels that are not in the file: maintainers add
+          # ad-hoc ones and losing them silently would be rude.
+          skip-delete: true

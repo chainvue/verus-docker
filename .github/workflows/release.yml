@@ -1,0 +1,263 @@
+name: Release
+
+# Releases are built only here, only from a tag. Never build and push an image
+# from a workstation: a tag must correspond to exactly one set of bits, and the
+# provenance attestation is what lets users verify that.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the GitHub release
+  packages: write # push to ghcr.io
+  id-token: write # cosign keyless signing via OIDC
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Prove the tag is well formed and matches what the Dockerfile actually pins,
+  # before anything is built or published.
+  # ---------------------------------------------------------------------------
+  verify-tag:
+    name: Verify tag
+    runs-on: ubuntu-latest
+    outputs:
+      upstream: ${{ steps.check.outputs.upstream }}
+      revision: ${{ steps.check.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: check
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+
+          # Expected shape: v<upstream>-r<N>, e.g. v1.2.17-2-r1
+          if [[ ! "$tag" =~ ^(v.+)-r([0-9]+)$ ]]; then
+            echo "::error::tag '${tag}' does not match v<upstream-version>-r<N>"
+            exit 1
+          fi
+          upstream="${BASH_REMATCH[1]}"
+          revision="${BASH_REMATCH[2]}"
+
+          pinned="$(scripts/next-version.sh --upstream)"
+          if [[ "$upstream" != "$pinned" ]]; then
+            echo "::error::tag says upstream ${upstream} but the Dockerfile pins ${pinned}"
+            exit 1
+          fi
+
+          echo "upstream=${upstream}" >> "$GITHUB_OUTPUT"
+          echo "revision=${revision}" >> "$GITHUB_OUTPUT"
+          echo "tag ${tag} is consistent with the Dockerfile"
+
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: Smoke test before publishing
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: verus-docker:release-candidate
+          build-args: |
+            IMAGE_REVISION=r${{ needs.verify-tag.outputs.revision }}
+
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/zcash-params
+          key: zcash-params-${{ hashFiles('rootfs/usr/local/lib/verus/params.sh') }}
+
+      - name: Smoke test
+        env:
+          IMAGE: verus-docker:release-candidate
+          PARAMS_DIR: /tmp/zcash-params
+          RPC_TIMEOUT_SECONDS: "420"
+        run: bash scripts/smoke-test.sh
+
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Build, sign and publish
+    needs: [verify-tag, smoke]
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag fan-out:
+      #   v1.2.17-2-r1  immutable, never moves       <- the tag being pushed
+      #   1.2.17-2      newest rN for that upstream  <- moves
+      #   latest        newest stable overall        <- moves
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ github.ref_name }}
+            type=raw,value=${{ needs.verify-tag.outputs.upstream }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ github.ref_name }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            IMAGE_REVISION=r${{ needs.verify-tag.outputs.revision }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          provenance: mode=max
+          sbom: true
+
+      - uses: sigstore/cosign-installer@v3
+
+      # Keyless signing: the signature is bound to this workflow's identity via
+      # OIDC, so there is no private key to leak or rotate.
+      - name: Sign the image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          while read -r tag; do
+            [[ -n "$tag" ]] || continue
+            cosign sign --yes "${tag%%:*}@${DIGEST}"
+          done <<< "$TAGS"
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes --predicate sbom.spdx.json --type spdxjson \
+            "${REGISTRY}/${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+  # ---------------------------------------------------------------------------
+  scan:
+    name: Vulnerability scan
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      # Runs after publishing on purpose. Holding the release hostage to a
+      # newly disclosed CVE in a base image would block security updates to
+      # verusd itself, which is usually the more urgent thing. A critical
+      # finding fails this job loudly and the fix ships as the next -rN.
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.publish.outputs.digest }}
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+
+      - name: Fail on critical findings
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.publish.outputs.digest }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # ---------------------------------------------------------------------------
+  github-release:
+    name: GitHub release
+    needs: [verify-tag, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+
+      - name: Compose release notes
+        run: |
+          set -euo pipefail
+          cat > notes.md <<EOF
+          ## Image
+
+          \`\`\`
+          docker pull ${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}
+          \`\`\`
+
+          | Tag | Meaning |
+          | --- | --- |
+          | \`${GITHUB_REF_NAME}\` | This exact build. Immutable — use this in production. |
+          | \`${{ needs.verify-tag.outputs.upstream }}\` | Newest image revision for this upstream version. Moves. |
+          | \`latest\` | Newest stable release. Moves. |
+
+          Upstream daemon: **${{ needs.verify-tag.outputs.upstream }}**
+          Digest: \`${{ needs.publish.outputs.digest }}\`
+
+          ## Verifying this release
+
+          \`\`\`bash
+          cosign verify ${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME} \\
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@.*' \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          \`\`\`
+
+          An SPDX SBOM is attached to this release and attested to the image.
+
+          ## Upgrading
+
+          Stop the node, back up \`wallet.dat\`, change the tag, start it again.
+          Check the upstream release notes below for any required reindex.
+          EOF
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+          generate_release_notes: true
+          files: sbom.spdx.json
+          fail_on_unmatched_files: true

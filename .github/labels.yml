@@ -1,0 +1,54 @@
+# Repository labels, applied by .github/workflows/labels.yml.
+# The path-based labeler (.github/labeler.yml) assumes these exist.
+
+- name: image
+  color: "0e8a16"
+  description: The node image, Dockerfile or entrypoint
+- name: exporter
+  color: "1d76db"
+  description: The Prometheus exporter
+- name: documentation
+  color: "0075ca"
+  description: Documentation only
+- name: compose
+  color: "5319e7"
+  description: Docker Compose examples
+- name: kubernetes
+  color: "326ce5"
+  description: Kubernetes manifests or the Helm chart
+- name: ci
+  color: "bfd4f2"
+  description: Workflows, scripts and tooling
+- name: chain-support
+  color: "fbca04"
+  description: Adding or updating PBaaS chain metadata
+- name: dependencies
+  color: "0366d6"
+  description: Dependency and base image updates
+- name: upstream-bump
+  color: "d4c5f9"
+  description: Pins a new VerusCoin daemon release
+- name: base-image
+  color: "c2e0c6"
+  description: Rebuild against a patched base image
+- name: security
+  color: "b60205"
+  description: Security relevant; never auto-closed
+- name: bug
+  color: "d73a4a"
+  description: Something is broken
+- name: enhancement
+  color: "a2eeef"
+  description: New capability or improvement
+- name: good first issue
+  color: "7057ff"
+  description: A good entry point for a new contributor
+- name: help wanted
+  color: "008672"
+  description: Maintainers would welcome help here
+- name: pinned
+  color: "ededed"
+  description: Exempt from stale handling
+- name: question
+  color: "d876e3"
+  description: Better suited to Discussions

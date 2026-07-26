@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-component-in-tag": false,
+  "separate-pull-requests": false,
+
+  "//": "release-please maintains the changelog and the release PR only. It does not tag and it does not create the GitHub release: our tags are v<verusd-version>-rN, which has no semver equivalent it can express. scripts/next-version.sh decides the version; pushing the tag triggers release.yml.",
+  "skip-github-release": true,
+  "skip-labeling": false,
+
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Fixes" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "ci", "section": "Build and CI" },
+    { "type": "refactor", "section": "Refactoring", "hidden": true },
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "chore", "section": "Chores", "hidden": true }
+  ],
+
+  "packages": {
+    ".": {
+      "package-name": "verus-docker",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+name: Stale
+
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-message: >
+            This issue has been quiet for 60 days. If it is still relevant, a
+            comment keeps it open — otherwise it will close in 14 days. Closing
+            is not a judgement, just housekeeping; reopen any time.
+          stale-pr-message: >
+            This pull request has been quiet for 60 days. Comment or push to
+            keep it open, otherwise it will close in 14 days.
+          # Chain metadata requests often wait on the chain itself; never
+          # auto-close them or security reports.
+          exempt-issue-labels: "pinned,security,chain-support,upstream-bump"
+          exempt-pr-labels: "pinned,security,upstream-bump"
+          operations-per-run: 100

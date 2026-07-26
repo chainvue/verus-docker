@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # Keeps the action versions used across the workflows current. Worth having:
+  # this repo signs and publishes images, so its CI is part of the supply chain.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: ci
+
+  # The node image base. Note that a base image REBUILD is handled separately by
+  # .github/workflows/rebuild.yml — Dependabot only sees tag changes, not a
+  # moved digest behind the same tag.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, base-image]
+    commit-message:
+      prefix: fix
+
+  # The exporter's Python base image.
+  - package-ecosystem: docker
+    directory: "/exporter"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, exporter]
+    commit-message:
+      prefix: fix

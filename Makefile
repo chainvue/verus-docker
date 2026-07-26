@@ -15,6 +15,7 @@ SHFMT_IMAGE       ?= mvdan/shfmt:v3-alpine
 HELM_IMAGE        ?= alpine/helm:latest
 KUBECTL_IMAGE     ?= bitnami/kubectl:latest
 KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:latest
+ACTIONLINT_IMAGE  ?= rhysd/actionlint:latest
 K8S_VERSION       ?= 1.31.0
 
 COMPOSE_TESTNET    := examples/compose.testnet.yml
@@ -29,12 +30,16 @@ SHELL_SCRIPTS := rootfs/usr/local/bin/entrypoint.sh \
                  rootfs/usr/local/lib/verus/params.sh \
                  rootfs/usr/local/lib/verus/bootstrap.sh \
                  rootfs/usr/local/lib/verus/pbaas.sh \
-                 scripts/verus-cli.sh
+                 scripts/verus-cli.sh \
+                 scripts/smoke-test.sh \
+                 scripts/next-version.sh \
+                 scripts/check-env-docs.sh \
+                 scripts/bump-upstream.sh
 
 .DEFAULT_GOAL := help
 .PHONY: help build build-multiarch build-exporter lint shellcheck shfmt shfmt-fix \
-        hadolint json-lint helm-lint k8s-validate py-check up-testnet up-monitoring \
-        cli logs shell down down-monitoring clean
+        hadolint actionlint env-docs json-lint helm-lint k8s-validate py-check smoke \
+        up-testnet up-monitoring cli logs shell down down-monitoring clean version
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -53,7 +58,7 @@ build-exporter: ## Build the Prometheus exporter image
 
 ## --- Lint -----------------------------------------------------------------
 
-lint: shellcheck shfmt hadolint json-lint py-check helm-lint k8s-validate ## Run every linter
+lint: shellcheck shfmt hadolint json-lint py-check helm-lint k8s-validate actionlint env-docs ## Run every linter
 
 shellcheck: ## Lint shell scripts
 	docker run --rm -v "$(PWD):/mnt" -w /mnt $(SHELLCHECK_IMAGE) \
@@ -65,8 +70,16 @@ shfmt: ## Check shell formatting
 shfmt-fix: ## Reformat shell scripts in place
 	docker run --rm -v "$(PWD):/mnt" -w /mnt $(SHFMT_IMAGE) -w $(SHELL_SCRIPTS)
 
-hadolint: ## Lint the Dockerfile
+hadolint: ## Lint both Dockerfiles
 	docker run --rm -i $(HADOLINT_IMAGE) < Dockerfile
+	docker run --rm -i $(HADOLINT_IMAGE) < exporter/Dockerfile
+
+actionlint: ## Lint the GitHub Actions workflows
+	docker run --rm -v "$(PWD):/repo" -w /repo $(ACTIONLINT_IMAGE)
+	@echo "  ok  .github/workflows"
+
+env-docs: ## Check every env var is documented in the README and .env.example
+	@bash scripts/check-env-docs.sh
 
 json-lint: ## Validate the chain metadata and dashboard JSON
 	@for f in chains/*.json examples/grafana/dashboards/*.json; do \
@@ -91,6 +104,16 @@ k8s-validate: ## Validate the plain manifests and rendered chart against Kuberne
 	docker run --rm -v "$(PWD):/w" -w /w $(KUBECONFORM_IMAGE) \
 		-strict -summary -kubernetes-version $(K8S_VERSION) \
 		-ignore-filename-pattern 'kustomization.yaml' deploy/kubernetes/
+
+## --- Test -----------------------------------------------------------------
+
+smoke: build ## Run the full smoke test against a freshly built image
+	IMAGE=$(IMAGE):$(TAG) PARAMS_DIR=$${PARAMS_DIR:-/tmp/verus-params-cache} \
+		bash scripts/smoke-test.sh
+
+version: ## Show the next release tag
+	@echo "upstream pinned : $$(scripts/next-version.sh --upstream)"
+	@echo "next tag        : $$(scripts/next-version.sh)"
 
 ## --- Run ------------------------------------------------------------------
 

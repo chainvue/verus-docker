@@ -1,0 +1,117 @@
+name: Upstream watch
+
+# Checks daily for a new VerusCoin release and opens a pull request pinning it.
+#
+# It never merges. Upstream ships fast security releases (three in thirteen days
+# around v1.2.17), and some of them require a reindex or change consensus
+# behaviour — a human has to read the release notes before users get the image.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Specific upstream tag to pin (default: newest stable)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    name: Check for a new upstream release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pin the new version
+        id: bump
+        run: bash scripts/bump-upstream.sh ${{ inputs.version }}
+
+      - name: Did anything change?
+        id: changed
+        run: |
+          if git diff --quiet -- Dockerfile; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch upstream release notes
+        if: steps.changed.outputs.changed == 'true'
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          gh api "repos/VerusCoin/VerusCoin/releases/tags/${NEW_VERSION}" \
+            --jq '.body' > upstream-notes.md || echo "_Could not fetch upstream notes._" > upstream-notes.md
+          # Keep the PR body readable.
+          head -c 40000 upstream-notes.md > upstream-notes.trimmed.md
+          mv upstream-notes.trimmed.md upstream-notes.md
+
+      - name: Compose the pull request body
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          OLD_VERSION: ${{ steps.bump.outputs.old_version }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          SHA_AMD64: ${{ steps.bump.outputs.sha_amd64 }}
+          SHA_ARM64: ${{ steps.bump.outputs.sha_arm64 }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Bumps the pinned VerusCoin daemon from \`${OLD_VERSION}\` to \`${NEW_VERSION}\`."
+            echo
+            echo "## Pinned checksums"
+            echo
+            echo "Upstream publishes no checksum asset, so these are the root of trust for"
+            echo "the image build and they need a human to confirm them."
+            echo
+            echo "| Architecture | SHA-256 of the release \`.tgz\` |"
+            echo "| --- | --- |"
+            echo "| amd64 | \`${SHA_AMD64}\` |"
+            echo "| arm64 | \`${SHA_ARM64}\` |"
+            echo
+            echo "The bump script already confirmed that each archive's embedded"
+            echo "\`.signature.txt\` matches its inner tarball and is signed by"
+            echo "\`Verus Coin Foundation Releases@\`."
+            echo
+            echo "## Before merging"
+            echo
+            echo "- [ ] Read the upstream notes below for a **required reindex or resync**."
+            echo "      If one is needed, it must be called out in our release notes."
+            echo "- [ ] Check for consensus or RPC changes that affect the entrypoint,"
+            echo "      the healthcheck, or the exporter."
+            echo "- [ ] Optionally verify the VerusID signature against a synced node:"
+            echo
+            echo '      verus verifyfile "Verus Coin Foundation Releases@" [signature] [path to .tar.gz]'
+            echo
+            echo "Merging this does **not** publish anything. Tag the merge commit to release."
+            echo
+            echo "---"
+            echo
+            echo "## Upstream release notes for ${NEW_VERSION}"
+            echo
+            cat upstream-notes.md
+          } > pr-body.md
+          rm -f upstream-notes.md
+
+      - name: Open the pull request
+        if: steps.changed.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: upstream-bump/${{ steps.bump.outputs.new_version }}
+          base: main
+          title: "feat: bump verusd to ${{ steps.bump.outputs.new_version }}"
+          body-path: pr-body.md
+          labels: |
+            upstream-bump
+            dependencies
+          delete-branch: true
+          add-paths: |
+            Dockerfile

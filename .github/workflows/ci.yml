@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to the same PR makes the previous run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+            --shell=bash --external-sources --severity=style \
+            rootfs/usr/local/bin/entrypoint.sh \
+            rootfs/usr/local/bin/healthcheck.sh \
+            rootfs/usr/local/bin/verus \
+            rootfs/usr/local/lib/verus/*.sh \
+            scripts/*.sh
+
+      - name: shfmt
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt mvdan/shfmt:v3-alpine -d \
+            rootfs/usr/local/bin/entrypoint.sh \
+            rootfs/usr/local/bin/healthcheck.sh \
+            rootfs/usr/local/bin/verus \
+            rootfs/usr/local/lib/verus/*.sh \
+            scripts/*.sh
+
+      - name: hadolint (node image)
+        run: docker run --rm -i hadolint/hadolint < Dockerfile
+
+      - name: hadolint (exporter image)
+        run: docker run --rm -i hadolint/hadolint < exporter/Dockerfile
+
+      - name: actionlint
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+
+      - name: Exporter syntax
+        run: |
+          python3 -c "import pathlib; f='exporter/verus_exporter.py'; compile(pathlib.Path(f).read_text(), f, 'exec')"
+
+      - name: JSON validity
+        run: |
+          for f in chains/*.json examples/grafana/dashboards/*.json; do
+            jq -e . "$f" > /dev/null && echo "ok  $f"
+          done
+
+  # ---------------------------------------------------------------------------
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every env var the container reads must appear in the README table and
+      # in .env.example. This is the check that stops configuration rotting.
+      - name: Environment variables are documented
+        run: bash scripts/check-env-docs.sh
+
+      - name: Link check
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Bootstrap hosts rate-limit and 403 unknown user agents; GitHub
+          # release URLs are checked implicitly by the build itself.
+          args: >-
+            --no-progress
+            --exclude-path CHANGELOG.md
+            --exclude '^https://bootstrap\.'
+            --exclude '^https://verus\.io/zcparams'
+            --exclude '^http://localhost'
+            --exclude '^http://127\.0\.0\.1'
+            --exclude '^https://github\.com/chainvue/verus-docker'
+            './**/*.md'
+          fail: true
+
+  # ---------------------------------------------------------------------------
+  deploy-manifests:
+    name: Helm and Kubernetes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: helm lint
+        run: helm lint deploy/helm/verus-node
+
+      # Render the permutations that exercise the conditional templates.
+      - name: helm template (mainnet defaults)
+        run: helm template verus deploy/helm/verus-node > /tmp/render-mainnet.yaml
+
+      - name: helm template (testnet, monitoring, network policy)
+        run: |
+          helm template verus deploy/helm/verus-node \
+            --set chain=VRSCTEST \
+            --set monitoring.enabled=true \
+            --set monitoring.serviceMonitor.enabled=true \
+            --set networkPolicy.enabled=true > /tmp/render-testnet.yaml
+
+      # A PBaaS chain has no predictable P2P port, so the chart must refuse to
+      # guess. If this ever succeeds, the guard has regressed.
+      - name: helm template rejects a PBaaS chain without explicit ports
+        run: |
+          if helm template verus deploy/helm/verus-node --set chain=chips > /dev/null 2>&1; then
+            echo "::error::chart accepted a PBaaS chain without explicit ports"
+            exit 1
+          fi
+          echo "chart correctly refused to guess PBaaS ports"
+
+      - name: kustomize build
+        run: |
+          curl -sSLo /tmp/kustomize.tar.gz \
+            https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz
+          tar -xzf /tmp/kustomize.tar.gz -C /tmp
+          /tmp/kustomize build deploy/kubernetes/ > /tmp/render-kustomize.yaml
+
+      - name: Validate against Kubernetes schemas
+        run: |
+          docker run --rm -v /tmp:/tmp -v "$PWD:/w" -w /w \
+            ghcr.io/yannh/kubeconform:latest \
+            -strict -summary -kubernetes-version 1.31.0 -ignore-missing-schemas \
+            /tmp/render-mainnet.yaml /tmp/render-testnet.yaml /tmp/render-kustomize.yaml
+
+  # ---------------------------------------------------------------------------
+  smoke:
+    name: Build and smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # amd64 only here; the release workflow proves the cross build.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: verus-docker:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The Zcash parameters are ~740 MB and verusd refuses to start without
+      # them. Caching turns the dominant cost of this job into a few seconds.
+      # The key is the pinned hash list, so a parameter change busts the cache.
+      - name: Restore Zcash parameters
+        id: params-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/zcash-params
+          key: zcash-params-${{ hashFiles('rootfs/usr/local/lib/verus/params.sh') }}
+
+      - name: Smoke test
+        env:
+          IMAGE: verus-docker:ci
+          PARAMS_DIR: /tmp/zcash-params
+          RPC_TIMEOUT_SECONDS: "420"
+        run: bash scripts/smoke-test.sh
+
+      - name: Exporter builds
+        uses: docker/build-push-action@v6
+        with:
+          context: exporter
+          platforms: linux/amd64
+          load: true
+          tags: verus-exporter:ci
+
+      - name: Exporter refuses to start without credentials
+        run: |
+          if docker run --rm verus-exporter:ci 2>/dev/null; then
+            echo "::error::exporter started without credentials"
+            exit 1
+          fi
+          echo "exporter correctly refused to start without credentials"

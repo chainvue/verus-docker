@@ -1,0 +1,89 @@
+name: Weekly rebuild
+
+# Base image security patches have to reach users. A published image is frozen
+# bits: if debian:bookworm-slim gets a fix, our image only gets it when we
+# rebuild. This checks weekly whether the base digest moved and, if so, opens a
+# PR bumping only the -rN revision.
+#
+# It opens a PR rather than tagging directly, so every published image still
+# corresponds to a reviewed commit.
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-base-image:
+    name: Check the base image digest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the current base image digest
+        id: base
+        run: |
+          set -euo pipefail
+          tag="$(awk -F= '/^ARG DEBIAN_TAG=/ {print $2; exit}' Dockerfile | tr -d '"'"'"' \r')"
+          tag="${tag:-bookworm-slim}"
+          docker pull --quiet "debian:${tag}" > /dev/null
+          digest="$(docker image inspect "debian:${tag}" --format '{{index .RepoDigests 0}}' | cut -d@ -f2)"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "debian:${tag} is currently ${digest}"
+
+      - name: Compare against the last release
+        id: compare
+        env:
+          DIGEST: ${{ steps.base.outputs.digest }}
+        run: |
+          set -euo pipefail
+          recorded=""
+          [[ -f .github/base-image-digest ]] && recorded="$(cat .github/base-image-digest)"
+
+          if [[ "$recorded" == "$DIGEST" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Base image is unchanged; nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "previous=${recorded:-none}" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$DIGEST" > .github/base-image-digest
+          fi
+
+      - name: Work out the next revision
+        if: steps.compare.outputs.changed == 'true'
+        id: version
+        run: echo "next=$(bash scripts/next-version.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        if: steps.compare.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: rebuild/base-image
+          base: main
+          title: "fix: rebuild against a patched base image"
+          labels: |
+            base-image
+            dependencies
+          delete-branch: true
+          add-paths: |
+            .github/base-image-digest
+          body: |
+            The `debian:${{ steps.base.outputs.tag }}` base image digest changed, so the
+            published images are missing whatever was patched in it.
+
+            | | |
+            | --- | --- |
+            | Previous | `${{ steps.compare.outputs.previous }}` |
+            | Current | `${{ steps.base.outputs.digest }}` |
+
+            The daemon version is unchanged. Merge this and tag
+            **`${{ steps.version.outputs.next }}`** to publish the rebuilt image.
+
+            Nothing is published until that tag is pushed.
