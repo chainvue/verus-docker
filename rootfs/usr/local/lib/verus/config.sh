@@ -116,10 +116,10 @@ write_credentials_file() {
 	cat >"$tmp" <<EOF
 # verus-docker RPC credentials for chain ${CHAIN_NAME}
 # Generated $(date -u '+%Y-%m-%dT%H:%M:%SZ'). Treat this file as a secret.
-RPC_USER=${RPC_USER}
-RPC_PASSWORD=${RPC_PASSWORD}
-RPC_PORT=${RPC_PORT}
-RPC_URL=http://127.0.0.1:${RPC_PORT}
+RPC_USER=${RPC_USER:-}
+RPC_PASSWORD=${RPC_PASSWORD:-}
+RPC_PORT=${RPC_PORT:-}
+RPC_URL=http://127.0.0.1:${RPC_PORT:-}
 CHAIN=${CHAIN_NAME}
 EOF
 	mv -f -- "$tmp" "$creds_file"
@@ -214,7 +214,15 @@ ensure_config() {
 		log_info "  -> Delete the file (or edit it) if you want different settings."
 		load_credentials_from_conf "$conf"
 		RPC_PORT="${RPC_PORT:-$DEFAULT_RPC_PORT}"
-		write_credentials_file "$creds_file"
+		# An operator's hand-written config may legitimately carry no
+		# credentials. Writing a half-empty file would only mislead the
+		# healthcheck and the exporter, so skip it and say why.
+		if [[ -n "${RPC_USER:-}" && -n "${RPC_PASSWORD:-}" ]]; then
+			write_credentials_file "$creds_file"
+		else
+			log_warn "existing config has no rpcuser/rpcpassword — not writing a credentials file"
+			log_warn "  the healthcheck and exporter will need RPC_USER/RPC_PASSWORD passed explicitly"
+		fi
 		return 0
 	fi
 

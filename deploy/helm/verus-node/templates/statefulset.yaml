@@ -45,7 +45,7 @@ spec:
 
       containers:
         - name: verus
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -170,7 +170,7 @@ spec:
             # No Secret supplied, so the entrypoint generated credentials into
             # the data volume. Read them from there.
             - name: VERUS_CREDENTIALS_FILE
-              value: {{ printf "%s/%s/rpc-credentials" (include "verus-node.dataMountPath" .) (eq (upper .Values.chain) "VRSCTEST" | ternary "vrsctest" .Values.chain) | quote }}
+              value: {{ include "verus-node.credentialsPath" . | quote }}
             {{- end }}
           ports:
             - name: metrics

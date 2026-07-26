@@ -128,7 +128,7 @@ v1.2.17-2-r1
 | Tag | Moves? | Use it if... |
 | --- | --- | --- |
 | `v1.2.17-2-r1` | **Never** | You run this in production. Immutable — always these exact bits. |
-| `1.2.17-2` | Yes | You want image fixes for one daemon version, but upgrade the daemon deliberately. |
+| `v1.2.17-2` | Yes | You want image fixes for one daemon version, but upgrade the daemon deliberately. |
 | `latest` | Yes | You are evaluating or developing. **Not** for a staking node. |
 
 `-rN` increments when the image changes but the daemon does not — a base image

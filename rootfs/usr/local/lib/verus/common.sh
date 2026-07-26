@@ -176,6 +176,41 @@ rpc_call() {
 }
 
 # ---------------------------------------------------------------------------
+# Credentials
+# ---------------------------------------------------------------------------
+
+# read_credentials_file <path>
+# Populates RPC_USER / RPC_PASSWORD / RPC_PORT from a KEY=VALUE file.
+#
+# Parsed, never sourced. The file lives in a volume the operator owns, so
+# `source` would execute its contents as shell code — anything able to write
+# that volume would get code execution inside the container every time the
+# healthcheck runs. It would also mangle any password containing shell
+# metacharacters, which fails in a confusing, silent way.
+# shellcheck disable=SC2034  # RPC_* are consumed by the scripts that source this
+read_credentials_file() {
+	local file="$1" line key value
+
+	[[ -r "$file" ]] || return 1
+
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		if [[ -z "$line" || "$line" == \#* || "$line" != *=* ]]; then
+			continue
+		fi
+		key="${line%%=*}"
+		value="${line#*=}"
+		case "$key" in
+		RPC_USER) RPC_USER="$value" ;;
+		RPC_PASSWORD) RPC_PASSWORD="$value" ;;
+		RPC_PORT) RPC_PORT="$value" ;;
+		*) ;;
+		esac
+	done <"$file"
+
+	return 0
+}
+
+# ---------------------------------------------------------------------------
 # Misc
 # ---------------------------------------------------------------------------
 

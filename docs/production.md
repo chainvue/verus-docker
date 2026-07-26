@@ -285,14 +285,25 @@ Corruption: block checksum mismatch
 
 Almost always a hard kill or an OOM during a flush. Recovery:
 
+**Back up the wallet before you do anything else** — `wallet.dat` lives in the
+same volume you are about to delete, and this step is irreversible:
+
 ```bash
-docker compose down
-docker volume rm <project>_verus-data-vrsc   # destroys chain data, NOT wallet.dat
-# start with USE_BOOTSTRAP=true to re-seed
+docker compose exec verus verus backupwallet emergency
+docker compose cp verus:/home/verus/.komodo/VRSC/emergency ./wallet-emergency.dat
 ```
 
-`wallet.dat` lives in the same volume, so **back it up first** if you have not.
-Then fix the cause: raise the grace period, raise the memory limit, or both.
+Only then:
+
+```bash
+docker compose down
+# DESTROYS EVERYTHING IN THE VOLUME, INCLUDING wallet.dat
+docker volume rm <project>_verus-data-vrsc
+# start with USE_BOOTSTRAP=true to re-seed the chain
+```
+
+Then fix the cause, or it recurs: raise the grace period, raise the memory
+limit, or both.
 
 ### Stuck at a height
 

@@ -20,7 +20,7 @@ Run a CLI command:
 RPC credentials were generated on first start and written into the data volume:
 
   kubectl -n {{ .Release.Namespace }} exec {{ include "verus-node.fullname" . }}-0 -c verus -- \
-    cat {{ include "verus-node.dataMountPath" . }}/{{ .Values.chain }}/rpc-credentials
+    cat {{ include "verus-node.credentialsPath" . }}
 {{- end }}
 
 {{ if .Values.enableStaking -}}

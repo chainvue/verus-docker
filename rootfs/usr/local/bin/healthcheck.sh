@@ -83,10 +83,7 @@ load_credentials() {
 	local creds_file
 	creds_file="$(chain_credentials_file)"
 
-	if [[ -r "$creds_file" ]]; then
-		# shellcheck disable=SC1090  # runtime path, generated at startup
-		source "$creds_file"
-	fi
+	read_credentials_file "$creds_file" || true
 
 	if [[ -z "${RPC_USER:-}" || -z "${RPC_PASSWORD:-}" ]]; then
 		# Fall back to the config file for hand-tuned setups.

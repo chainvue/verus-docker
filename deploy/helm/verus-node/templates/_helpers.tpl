@@ -69,3 +69,23 @@ the chart fails rather than guessing.
 {{- printf "%s-rpc" (include "verus-node.fullname" .) -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Where the entrypoint writes the generated credentials file.
+
+Must mirror chain_credentials_file() in rootfs/usr/local/lib/verus/chain.sh:
+root and testnet chains get <datadir>/rpc-credentials with the datadir cased
+exactly as verusd expects, while a PBaaS chain has no predictable datadir and
+so gets <home>/<slug>.rpc-credentials instead.
+*/}}
+{{- define "verus-node.credentialsPath" -}}
+{{- $home := include "verus-node.dataMountPath" . -}}
+{{- $c := upper .Values.chain -}}
+{{- if eq $c "VRSC" -}}
+{{ $home }}/VRSC/rpc-credentials
+{{- else if eq $c "VRSCTEST" -}}
+{{ $home }}/vrsctest/rpc-credentials
+{{- else -}}
+{{ $home }}/{{ lower .Values.chain }}.rpc-credentials
+{{- end -}}
+{{- end -}}

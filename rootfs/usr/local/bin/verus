@@ -34,13 +34,11 @@ main() {
 		# random rpcpassword. The client would therefore authenticate with the
 		# wrong credentials, so we pass ours explicitly.
 		creds_file="$(chain_credentials_file)"
-		if [[ -r "$creds_file" ]]; then
-			# shellcheck disable=SC1090  # runtime path, generated at startup
-			source "$creds_file"
+		if read_credentials_file "$creds_file"; then
 			args+=(
-				"-rpcuser=${RPC_USER}"
-				"-rpcpassword=${RPC_PASSWORD}"
-				"-rpcport=${RPC_PORT}"
+				"-rpcuser=${RPC_USER:-}"
+				"-rpcpassword=${RPC_PASSWORD:-}"
+				"-rpcport=${RPC_PORT:-}"
 			)
 		else
 			log_warn "no credentials file at ${creds_file}; falling back to the daemon's own config"

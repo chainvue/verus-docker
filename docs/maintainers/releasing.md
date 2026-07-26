@@ -14,7 +14,7 @@ v1.2.17-2-r1
 | Tag | Moves? | Who should use it |
 | --- | --- | --- |
 | `v1.2.17-2-r1` | Never | **Production.** Immutable — this tag always means these exact bits. |
-| `1.2.17-2` | Yes | Track image fixes for one daemon version without tracking daemon upgrades. |
+| `v1.2.17-2` | Yes | Track image fixes for one daemon version without tracking daemon upgrades. |
 | `latest` | Yes | Development and evaluation. Never a staking node. |
 
 `-rN` increments when we change the image but not the daemon: a base image
