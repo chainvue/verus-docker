@@ -15,8 +15,8 @@
 
 set -euo pipefail
 
-CONTAINER="${VERUS_CONTAINER:-verus}"
-RPC_URL="${VERUS_RPC_URL:-http://127.0.0.1:18843}"
+CONTAINER="${VERUS_CONTAINER:-verus-testnet}"
+RPC_PORT="${VERUS_RPC_PORT:-18843}"
 CREDS_PATH="${VERUS_CREDS_PATH:-/home/verus/.komodo/vrsctest/rpc-credentials}"
 
 # --------------------------------------------------------------------------
@@ -41,13 +41,28 @@ fi
 # --------------------------------------------------------------------------
 
 # rpc <method> [json-params]
+#
+# Runs curl INSIDE the container by default. The node deliberately does not
+# publish its RPC port, so calling it from the host would fail unless you had
+# opted in — running it in the container keeps this example true to the
+# security posture instead of quietly asking you to weaken it.
+#
+# Set VERUS_RPC_URL to call a reachable endpoint from the host instead.
 rpc() {
 	local method="$1" params="${2:-[]}"
-	curl --silent --show-error --fail-with-body \
-		--user "${VERUS_RPC_USER}:${VERUS_RPC_PASSWORD}" \
-		--header 'Content-Type: application/json' \
-		--data "{\"jsonrpc\":\"1.0\",\"id\":\"curl\",\"method\":\"${method}\",\"params\":${params}}" \
-		"$RPC_URL" | jq '.result'
+	local body="{\"jsonrpc\":\"1.0\",\"id\":\"curl\",\"method\":\"${method}\",\"params\":${params}}"
+
+	if [[ -n "${VERUS_RPC_URL:-}" ]]; then
+		curl --silent --show-error --fail-with-body \
+			--user "${VERUS_RPC_USER}:${VERUS_RPC_PASSWORD}" \
+			--header 'Content-Type: application/json' \
+			--data "$body" "$VERUS_RPC_URL" | jq '.result'
+	else
+		docker exec -i "$CONTAINER" curl --silent --show-error --fail-with-body \
+			--user "${VERUS_RPC_USER}:${VERUS_RPC_PASSWORD}" \
+			--header 'Content-Type: application/json' \
+			--data "$body" "http://127.0.0.1:${RPC_PORT}/" | jq '.result'
+	fi
 }
 
 # --------------------------------------------------------------------------

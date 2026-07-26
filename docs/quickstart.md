@@ -5,9 +5,13 @@ on why you are here.
 
 ## Prerequisites
 
-Docker with Compose v2 (`docker compose version` should print `v2.x`). That is
-all. About 5 GB of free disk for a testnet node, and roughly 740 MB more for the
-Zcash parameters, which every chain on the host then shares.
+Docker with Compose v2 (`docker compose version` should print `v2.x`), and `jq`
+if you want to pretty-print RPC output.
+
+Disk: budget **~20 GB** for a fully synced testnet node, plus ~740 MB once for
+the Zcash parameters, which every chain on the host then shares. A few GB is
+enough to get started, but the node keeps growing — running out mid-sync
+corrupts the database.
 
 ## Start a testnet node
 
@@ -114,15 +118,28 @@ You want an RPC endpoint to build against.
 
 **Runnable examples** live in [`examples/rpc/`](../examples/rpc/) — each one
 connects, calls `getinfo` and `getblockchaininfo`, then fetches the current tip
-block. They read the generated credentials straight out of the container, so
-there is nothing to configure:
+block. All three read the generated credentials straight out of the container.
 
 ```bash
 cd examples/rpc
-./curl.sh                # shell + jq
+./curl.sh                # works as-is: runs curl inside the container
+```
+
+`node.mjs` and `python.py` make the HTTP call from your machine, so they need a
+reachable endpoint. The stacks deliberately do not publish one — add it to
+`examples/compose.testnet.yml` first, bound to loopback:
+
+```yaml
+ports:
+  - "127.0.0.1:18843:18843"
+```
+
+```bash
 node node.mjs            # Node 18+, no dependencies
 python3 python.py        # Python 3.9+, standard library only
 ```
+
+Or open the devcontainer, where both are preconfigured against the node.
 
 **Getting the credentials yourself:**
 

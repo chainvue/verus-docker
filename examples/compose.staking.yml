@@ -19,10 +19,13 @@
 #      rebuildable from the network; your keys are not. Back it up before you
 #      fund the wallet, and again after generating any new address.
 #
+#      Use backupwallet, NOT a copy of wallet.dat: the live file is BDB and a
+#      straight copy of it while the daemon writes can be torn.
+#
 #      docker compose -f examples/compose.staking.yml exec verus \
-#        cp /home/verus/.komodo/VRSC/wallet.dat /home/verus/.komodo/VRSC/wallet.backup.dat
+#        verus backupwallet staking-backup
 #      docker compose -f examples/compose.staking.yml cp \
-#        verus:/home/verus/.komodo/VRSC/wallet.backup.dat ./wallet-$(date +%F).dat
+#        verus:/home/verus/.komodo/VRSC/staking-backup ./wallet-$(date +%F).dat
 #
 #      Then move that file somewhere off this host and encrypt it.
 # =============================================================================

@@ -64,16 +64,20 @@ spec:
                 configMapKeyRef:
                   name: verus-config
                   key: RPC_ALLOW_IP
+            # optional: omit the Secret entirely and the entrypoint generates
+            # credentials into the data volume instead, as the docs promise.
             - name: RPC_USER
               valueFrom:
                 secretKeyRef:
                   name: verus-rpc
                   key: RPC_USER
+                  optional: true
             - name: RPC_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: verus-rpc
                   key: RPC_PASSWORD
+                  optional: true
 
           ports:
             - name: p2p

@@ -5,14 +5,19 @@
 //
 // No dependencies — fetch and node:child_process are enough. Requires Node 18+.
 //
-// Credentials are read from the node's data volume by default, so there is
-// nothing to configure. Override with environment variables:
+// Credentials are read from the node's data volume automatically. The RPC
+// endpoint is NOT published by the example stacks, so to run this from the
+// host either publish it to loopback first:
+//
+//     ports: ["127.0.0.1:18843:18843"]   # in compose.testnet.yml
+//
+// or run it inside the devcontainer, where it is preconfigured. Override with:
 //
 //   VERUS_RPC_URL, VERUS_RPC_USER, VERUS_RPC_PASSWORD, VERUS_CONTAINER
 
 import { execFileSync } from "node:child_process";
 
-const CONTAINER = process.env.VERUS_CONTAINER ?? "verus";
+const CONTAINER = process.env.VERUS_CONTAINER ?? "verus-testnet";
 const RPC_URL = process.env.VERUS_RPC_URL ?? "http://127.0.0.1:18843";
 const CREDS_PATH =
   process.env.VERUS_CREDS_PATH ?? "/home/verus/.komodo/vrsctest/rpc-credentials";

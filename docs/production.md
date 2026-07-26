@@ -166,8 +166,9 @@ docker compose exec verus verus backupwallet pre-upgrade
 docker compose cp verus:/home/verus/.komodo/VRSC/pre-upgrade ./wallet-pre-upgrade.dat
 
 # 3. Stop cleanly. Watch it actually finish.
-docker compose down          # honours stop_grace_period
+docker compose stop          # honours stop_grace_period
 docker compose logs --tail 5 # expect "Shutdown: done"
+docker compose down          # only now remove the containers
 
 # 4. Change the tag, then start.
 docker compose up -d

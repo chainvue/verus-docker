@@ -157,8 +157,9 @@ docker compose exec verus verus backupwallet pre-upgrade
 docker compose cp verus:/home/verus/.komodo/VRSC/pre-upgrade ./wallet-pre-upgrade.dat
 
 # 3. Stop cleanly and confirm it finished.
-docker compose -f examples/compose.staking.yml down
+docker compose -f examples/compose.staking.yml stop
 docker compose -f examples/compose.staking.yml logs --tail 5   # "Shutdown: done"
+docker compose -f examples/compose.staking.yml down
 
 # 4. Change to the new immutable tag, start, then RE-UNLOCK.
 docker compose -f examples/compose.staking.yml up -d
