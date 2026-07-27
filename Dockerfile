@@ -89,7 +89,12 @@ RUN set -eux; \
         exit 1; \
     fi; \
     echo ">> verified ${inner} (signed by ${embedded_signer})"; \
-    tar -xzf "${inner}" -C /opt; \
+    # --no-same-owner: the upstream tarball carries the build machine's numeric
+    # ownership, which happens to be 1000:1000 — the same uid the daemon runs
+    # as here. Without this the daemon's own account can rewrite the binaries
+    # it executes, including the `verus` CLI operators use for wallet commands.
+    tar -xzf "${inner}" -C /opt --no-same-owner; \
+    chown -R root:root /opt/verus-cli; \
     test -x /opt/verus-cli/verusd; \
     test -x /opt/verus-cli/verus; \
     rm -f /opt/verus-cli/fetch-params /opt/verus-cli/fetch-bootstrap; \
@@ -140,7 +145,9 @@ RUN apt-get update \
 RUN groupadd --gid 1000 verus \
     && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash verus
 
-COPY --from=fetch /opt/verus-cli /opt/verus-cli
+# --chown is explicit here as well: COPY --from carries the source stage's
+# ownership, and these binaries must not be writable by the account that runs them.
+COPY --from=fetch --chown=root:root /opt/verus-cli /opt/verus-cli
 COPY rootfs/ /
 COPY chains/ /usr/local/share/verus-docker/chains/
 

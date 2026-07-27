@@ -46,12 +46,26 @@ jobs:
 
       # A checksum only says "these bytes are what I saw". This asks the Verus
       # chain whether the Verus Coin Foundation actually signed them.
+      # No continue-on-error. A rejected signature fails the job and no pull
+      # request is opened — which is what SECURITY.md has always described, and
+      # what continue-on-error quietly prevented: the step was marked failed but
+      # the job carried on and raised the PR anyway.
+      #
+      # The three outcomes are deliberately not equivalent:
+      #   0  verified     -> continue
+      #   1  REJECTED     -> stop; these bytes must not reach a PR
+      #   2  unreachable  -> continue, recorded in the PR body for a human
       - name: Verify the release signature on-chain
         if: steps.changed.outputs.changed == 'true'
         id: verify
-        continue-on-error: true
         env:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          # Ties the on-chain check to the bytes actually pinned in the
+          # Dockerfile. Without this the script downloads the assets a second
+          # time and verifies whatever it gets, which proves nothing about what
+          # the build will use.
+          EXPECT_SHA256_AMD64: ${{ steps.bump.outputs.sha_amd64 }}
+          EXPECT_SHA256_ARM64: ${{ steps.bump.outputs.sha_arm64 }}
         run: |
           set +e
           bash scripts/verify-release.sh "${NEW_VERSION}"

@@ -114,6 +114,43 @@ exist.
 `enforce_admins: false` is deliberate — an admin needs a way to unstick a broken
 `main` without disabling protection wholesale.
 
+## Tag protection for `v*`
+
+Protecting `main` is only half the story. `release.yml` triggers on a pushed
+`v*` tag and will build, cosign-sign and publish whatever commit that tag points
+at — and `cosign verify` would pass, because the assertion it makes is "built by
+this repository's release workflow", which would be perfectly true.
+
+`verify-tag` now refuses to release a commit that is not an ancestor of `main`,
+which closes the hole in CI. Add the ruleset as well, so the tag cannot be
+created in the first place:
+
+```bash
+gh api -X POST repos/chainvue/verus-docker/rulesets \
+  --input - <<'JSON'
+{
+  "name": "Release tags",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["refs/tags/v*"], "exclude": [] }
+  },
+  "rules": [
+    { "type": "creation" },
+    { "type": "update" },
+    { "type": "deletion" }
+  ],
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+  ]
+}
+JSON
+```
+
+`actor_id: 5` is the Admin role, so a maintainer can still cut a release while
+nobody else can create, move or delete a `v*` tag. Immutable tags stay immutable:
+`update` and `deletion` are what stop a published version being repointed.
+
 ## Actions permissions
 
 Settings → Actions → General:

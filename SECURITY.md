@@ -75,8 +75,12 @@ Also out of scope:
 - Vulnerabilities in Debian packages with no fix available upstream (we rebuild
   weekly to pick fixes up as they land)
 - Findings that require an attacker who already has root on the host
-- Deliberate, documented trade-offs — for example `BOOTSTRAP_INSECURE_TLS=true`,
-  which is opt-in, warns loudly, and still verifies the archive checksum
+- Deliberate, documented trade-offs — for example `BOOTSTRAP_INSECURE_TLS=true`.
+  It is opt-in and warns loudly at runtime. Note what it does **not** buy you:
+  the checksum sidecar is fetched over the same unauthenticated connection as
+  the archive, so anyone able to intercept that traffic can supply both. The
+  SHA-256 check still catches corruption and truncation; it does not establish
+  who served the file.
 - Reports that a user who sets `RPC_ALLOW_IP=0.0.0.0/0` can be attacked. The
   entrypoint warns prominently; that is working as intended.
 
