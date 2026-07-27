@@ -28,6 +28,25 @@ _fetch_bootstrap_checksum() {
 	tmp="$(mktemp)"
 	http_get_to_stdout "${url}.sha256sum" "${insecure[@]}" >"$tmp" 2>/dev/null || curl_status=$?
 
+	# Not every host publishes a .sha256sum. The Verus bootstrap hosts also
+	# publish a .verusid JSON sidecar carrying the same digest — verified
+	# byte-identical on VRSC, where both exist — and for the third-party PBaaS
+	# host it is the only checksum on offer. Fall back to it.
+	if ((curl_status != 0)); then
+		local vtmp vhash
+		vtmp="$(mktemp)"
+		if http_get_to_stdout "${url}.verusid" "${insecure[@]}" >"$vtmp" 2>/dev/null &&
+			vhash="$(jq -r '.hash // empty' "$vtmp" 2>/dev/null)" &&
+			[[ "$vhash" =~ ^[0-9a-f]{64}$ ]]; then
+			log_info "  no .sha256sum published; using the .verusid sidecar"
+			log_info "  signed by: $(jq -r '.signee // "unknown"' "$vtmp" 2>/dev/null)"
+			rm -f -- "$tmp" "$vtmp"
+			printf '%s\n' "$vhash"
+			return 0
+		fi
+		rm -f -- "$vtmp"
+	fi
+
 	if ((curl_status != 0)); then
 		rm -f -- "$tmp"
 		if ((curl_status == 60)); then
@@ -118,15 +137,21 @@ maybe_bootstrap() {
 
 	is_true "${USE_BOOTSTRAP:-false}" || return 0
 
+	# A PBaaS chain's data directory is named after a hash. We can only seed it
+	# ahead of the daemon when we already know that hash, which is exactly the
+	# chains/ metadata case.
 	if [[ "$CHAIN_KIND" == "pbaas" ]]; then
-		log_banner_warning \
-			"USE_BOOTSTRAP=true is not supported for PBaaS chains." \
-			"A PBaaS data directory is named after a hash the daemon derives" \
-			"at runtime, so there is nothing to extract into before it starts." \
-			"Additionally the community bootstrap host for PBaaS chains" \
-			"currently serves an expired TLS certificate." \
-			"Continuing with a normal sync from the network."
-		return 0
+		local hash
+		hash="$(chain_meta '.datadir_hash')"
+		if [[ ! "$hash" =~ ^[0-9a-f]{40}$ ]]; then
+			log_warn "USE_BOOTSTRAP=true, but the data directory name for '${CHAIN_NAME}' is not known."
+			log_warn "  A PBaaS directory is named after a hash the daemon derives from the chain"
+			log_warn "  definition. Add datadir_hash to chains/${CHAIN_SLUG}.json to enable this,"
+			log_warn "  or let the chain sync from the network (usually fine — PBaaS chains are small)."
+			return 0
+		fi
+		datadir="${CHAIN_HOME}/pbaas/${hash}"
+		log_info "PBaaS bootstrap target: ${datadir}"
 	fi
 
 	if dir_has_chain_data "$datadir"; then

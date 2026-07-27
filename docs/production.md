@@ -73,8 +73,9 @@ A bootstrap is a snapshot of the chain, published as a tarball.
 
 | | Bootstrap | From genesis |
 | --- | --- | --- |
-| Mainnet | ~22 GB download, then hours of catch-up | Days |
-| Testnet | ~6.6 GB, regenerated weekly | Hours |
+| Mainnet | ~22 GB download, then minutes of catch-up | Days |
+| Testnet | ~6.5 GB, regenerated weekly | Hours |
+| PBaaS | 5-16 GB depending on the chain, weekly | Hours |
 | Trust | You trust whoever published the snapshot | Only the network |
 
 **Turn it on only for the first start of a fresh volume.** `USE_BOOTSTRAP=true`

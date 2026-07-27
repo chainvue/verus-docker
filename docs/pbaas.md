@@ -166,28 +166,43 @@ For reference, the known hashes are recorded in `chains/*.json`:
 | vARRR | `e9e10955b7d16031e3d6f55d9c908a038e3ae47d` |
 | vDEX | `53fe39eea8c06bba32f1a4e20db67e5524f0309d` |
 
-## Bootstraps are not available for PBaaS
+## Bootstraps
 
-The daemon has bootstrap URLs compiled in for CHIPS, vARRR and vDEX, pointing at
-`bootstrap.dexstats.info`. Two problems:
+PBaaS chains can be bootstrapped like any other. `chains/*.json` points at
+[bootstrap.verus.expert](https://bootstrap.verus.expert/), which publishes a
+`.sha256sum` over valid TLS and signs each archive with a VerusID
+(`Oink bootstrap releases@`). Snapshots are regenerated roughly weekly.
 
-1. **That host serves an expired TLS certificate**, issued for a different
-   hostname entirely. `curl` fails with error 60. The daemon does not notice
-   because it disables certificate verification.
+```bash
+docker run -d -e CHAIN=vdex -e P2P_PORT=21777 -e RPC_PORT=21778 \
+  -e USE_BOOTSTRAP=true \
+  -e ROOT_RPC_HOST=vrsc -e ROOT_RPC_USER=... -e ROOT_RPC_PASSWORD=... \
+  -v vdex-data:/home/verus/.verus \
+  -v verus-params:/home/verus/.zcash-params \
+  ghcr.io/chainvue/verus-docker:latest
+```
 
-   *Last checked 2026-07-27.* This is the canonical statement of that fact in
-   this repository; everywhere else links here, so when the host fixes its
-   certificate only this paragraph needs updating.
-2. It is published by a **third party** (`dexstatsbootstrap@`), not the Verus
-   Coin Foundation. That is a different trust decision from a mainnet bootstrap
-   and deserves to be made consciously.
+That took about three minutes in testing and started the daemon at block
+1,001,216 rather than 0.
 
-So `USE_BOOTSTRAP=true` on a PBaaS chain logs a clear warning and continues with
-a normal network sync. PBaaS chains are much smaller than VRSC, so this is
-usually fine.
+**It only works for a chain whose data directory name we know**, because a
+PBaaS directory is named after a hash the daemon derives from the chain
+definition and the archive has to be extracted there before the daemon starts.
+The `datadir_hash` field in `chains/*.json` supplies it — which is also how
+verus.expert addresses its own downloads. A chain with no `chains/` entry logs
+a clear warning and syncs from the network instead, which is usually fine
+because PBaaS chains are small.
 
-If you have your own snapshot behind working TLS, point `BOOTSTRAP_URL` at it —
-a `<url>.sha256sum` sidecar must exist, and it is verified before extraction.
+### A note on the other host
+
+The daemon has bootstrap URLs for CHIPS, vARRR and vDEX compiled in, pointing
+at `bootstrap.dexstats.info`. That host serves an expired certificate issued
+for a different hostname, and publishes no `.sha256sum` — only a `.verusid`
+sidecar. This project does not use it. If you point `BOOTSTRAP_URL` there
+anyway you will need `BOOTSTRAP_INSECURE_TLS=true`, and the checksum is then
+taken from the `.verusid` sidecar, so corruption is still caught even though
+the server's identity is not authenticated.
+
 
 ## Adding a chain nobody has run before
 

@@ -228,9 +228,10 @@ Two caveats worth knowing up front:
 - **`https://` root URLs cannot work.** verusd speaks plain HTTP to a host:port
   pair, so a public gateway such as `api.verus.services` cannot serve as the
   root. Use your own node over a private network.
-- **PBaaS bootstraps are unavailable** while the community bootstrap host serves
-  an expired certificate — see [PBaaS chains](docs/pbaas.md#bootstraps-are-not-available-for-pbaas).
-  Those chains sync from the network instead.
+- **PBaaS bootstraps work**, from a host that publishes a checksum over valid
+  TLS — but only for chains with a `chains/` entry, since the archive must be
+  extracted into a directory named after a hash. See
+  [PBaaS chains](docs/pbaas.md#bootstraps).
 
 ---
 

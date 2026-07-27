@@ -7,10 +7,9 @@
     "rpc": 22778
   },
   "bootstrap": {
-    "url": "https://bootstrap.dexstats.info/CHIPS-bootstrap.tar.gz",
-    "signer": "dexstatsbootstrap@",
-    "approximate_size_bytes": 10018999028,
-    "tls_note": "bootstrap.dexstats.info has TLS problems; see docs/pbaas.md for the current status. verus-docker does not use PBaaS bootstraps \u2014 this URL is recorded for reference only."
+    "url": "https://bootstrap.verus.expert/f315367528394674d45277e369629605a1c3ce9f-bootstrap/f315367528394674d45277e369629605a1c3ce9f-bootstrap.tar.gz",
+    "signer": "Oink bootstrap releases@",
+    "approximate_size_bytes": 10018999028
   },
-  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is ~6 GB observed at the chain tip."
+  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Bootstraps come from bootstrap.verus.expert, which publishes a sha256sum over valid TLS. Observed memory use in production is ~6 GB observed at the chain tip."
 }
