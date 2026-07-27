@@ -8,10 +8,9 @@ on why you are here.
 Docker with Compose v2 (`docker compose version` should print `v2.x`), and `jq`
 if you want to pretty-print RPC output.
 
-Disk: budget **~20 GB** for a fully synced testnet node, plus ~740 MB once for
-the Zcash parameters, which every chain on the host then shares. A few GB is
-enough to get started, but the node keeps growing — running out mid-sync
-corrupts the database.
+Disk: a fully synced testnet node is **~20 GB** today, so **provision 50 GB** —
+it keeps growing, and running out mid-sync corrupts the database. Add ~740 MB
+once for the Zcash parameters, which every chain on the host then shares.
 
 ## Start a testnet node
 
@@ -215,7 +214,7 @@ docker compose -f examples/compose.mainnet.yml up -d
 | --- | --- | --- |
 | Sync from genesis | hours | days |
 | Bootstrap size | ~6.6 GB | ~22 GB |
-| Disk | ~50 GB | ~150 GB and growing |
+| Disk when synced | ~20 GB (provision 50 GB) | ~150 GB and growing |
 | RAM at chain tip | 4–8 GB | ~12 GB |
 | Coins | worthless | real |
 

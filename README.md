@@ -11,132 +11,207 @@
 
 ## ⚡ Quickstart
 
-A Verus **testnet** node with a working RPC endpoint:
+No clone, no config. A **testnet** node with an RPC endpoint on your machine:
 
 ```bash
-git clone https://github.com/chainvue/verus-docker && cd verus-docker
-
-docker compose -f examples/compose.testnet.yml up -d
-
-# Watch it come up (it fetches ~740 MB of Zcash parameters once)
-docker compose -f examples/compose.testnet.yml logs -f
-
-# Talk to it — no flags, no config
-./scripts/verus-cli.sh -f examples/compose.testnet.yml getinfo
-```
-
-Prefer plain Docker?
-
-```bash
-docker run -d --name verus \
+docker run -d --name verus-node \
   -e CHAIN=VRSCTEST \
+  -p 127.0.0.1:18843:18843 \
   -v verus-data:/home/verus/.komodo \
   -v verus-params:/home/verus/.zcash-params \
   ghcr.io/chainvue/verus-docker:latest
 
-# give it a minute first — it fetches the Zcash parameters on first start
-docker exec verus verus getinfo
+docker exec verus-node verus getinfo
 ```
 
 ```json
-{ "VRSCversion": "1.2.17-2", "blocks": 26880, "name": "VRSCTEST", ... }
+{ "VRSCversion": "1.2.17-2", "name": "VRSCTEST", "blocks": 26880, ... }
 ```
 
-### Talk to it over HTTP
+**First start takes about a minute** — it downloads ~740 MB of Zcash parameters
+once, then shares them with every other Verus container on the host. Later
+starts take seconds.
 
-Credentials are generated on first start and written into the data volume, so
-this works as-is:
+The chain then syncs in the background. **A node that is still syncing is
+healthy, not broken** — you can use the RPC immediately.
+
+> `-p 127.0.0.1:...` binds to **loopback only**, so the RPC is reachable from
+> your machine but not from your network. Verus RPC controls the wallet and has
+> no rate limiting — never bind it to `0.0.0.0`.
+
+---
+
+## Which chain do you want?
+
+| | **VRSCTEST** (testnet) | **VRSC** (mainnet) |
+| --- | --- | --- |
+| `CHAIN=` | `VRSCTEST` | `VRSC` |
+| RPC / P2P port | 18843 / 18842 | 27486 / 27485 |
+| Sync from genesis | hours | **days** |
+| Sync with bootstrap | ~6.6 GB download | ~22 GB download |
+| Disk when synced | ~20 GB (provision 50 GB) | ~150 GB and growing |
+| RAM at chain tip | 4–8 GB | ~12 GB |
+| Coins | worthless — safe to experiment | real |
+
+Start on **testnet** — same software, same RPC surface, same config, none of
+the commitment; moving to mainnet later is a one-line change. Any **PBaaS
+chain** works too (`CHAIN=chips`, `CHAIN=vdex`, an i-address —
+[there is no whitelist](#pbaas-chains-read-this-first)).
+
+---
+
+## Recipes
+
+Each one complete and copy-pasteable. Compose files work without cloning:
 
 ```bash
-docker compose -f examples/compose.testnet.yml exec -T verus sh -c '
-  . /home/verus/.komodo/vrsctest/rpc-credentials
-  curl -s --user "$RPC_USER:$RPC_PASSWORD" \
-    --data "{\"jsonrpc\":\"1.0\",\"id\":\"1\",\"method\":\"getblockchaininfo\",\"params\":[]}" \
-    http://127.0.0.1:18843/' | jq .result
+curl -O https://raw.githubusercontent.com/chainvue/verus-docker/main/examples/compose.testnet.yml
+docker compose -f compose.testnet.yml up -d
 ```
 
-To read the credentials yourself, or to reach the node from your own
-application, see [`examples/rpc/`](examples/rpc/) — runnable curl, Node and
-Python clients that need no configuration.
-
-> The RPC port is deliberately **not** published to the host. Reach it from
-> another container on the same network, or via `exec` as above.
-
-### Switch to mainnet
+<details>
+<summary><b>Mainnet</b> — with or without a verified bootstrap</summary>
 
 ```bash
--e CHAIN=VRSC
+docker run -d --name verus-mainnet -e CHAIN=VRSC \
+  -e USE_BOOTSTRAP=true `# drop this line to sync from genesis instead` \
+  -p 27485:27485 -p 127.0.0.1:27486:27486 \
+  -v verus-mainnet:/home/verus/.komodo -v verus-params:/home/verus/.zcash-params \
+  --stop-timeout 120 \
+  ghcr.io/chainvue/verus-docker:latest
 ```
 
-One line, but a much bigger commitment: **days of initial sync, ~150 GB of
-disk and ~12 GiB of RAM at the chain tip.** Read the
-[testnet vs mainnet comparison](docs/quickstart.md#switching-to-mainnet) before
-starting, and consider `USE_BOOTSTRAP=true` to seed from a verified snapshot
-instead of syncing from genesis.
+Publish P2P (27485) — without inbound peers the daemon is limited to a handful
+of outbound connections and sync gets noticeably slower. With `USE_BOOTSTRAP`
+the ~22 GB archive downloads **before** the daemon starts, so the RPC is
+unavailable until it finishes; its published SHA-256 is verified before
+anything is extracted, and it only runs on an empty data directory.
+</details>
 
-### Run a PBaaS chain
+<details>
+<summary><b>A PBaaS chain</b> — needs a Verus root node</summary>
 
 ```bash
--e CHAIN=chips \
--e ROOT_RPC_HOST=<your-vrsc-node> -e ROOT_RPC_USER=... -e ROOT_RPC_PASSWORD=...
+docker run -d --name chips -e CHAIN=chips \
+  -e ROOT_RPC_HOST=vrsc-node -e ROOT_RPC_PORT=27486 \
+  -e ROOT_RPC_USER=... -e ROOT_RPC_PASSWORD=... \
+  -v chips-data:/home/verus/.verus -v verus-params:/home/verus/.zcash-params \
+  ghcr.io/chainvue/verus-docker:latest
 ```
 
-A chain without a `chains/` entry also needs `P2P_PORT` and `RPC_PORT`, since
-the daemon derives an unpredictable P2P port.
-
-Any chain name or i-address works — there is no whitelist. PBaaS chains do need
-a reachable Verus root node; see [PBaaS chains](#pbaas-chains-read-this-first).
-A complete VRSC + CHIPS + vARRR stack is in
+A chain without a [`chains/`](chains/) entry also needs `P2P_PORT` and
+`RPC_PORT`. Full VRSC + CHIPS + vARRR stack:
 [`examples/compose.pbaas.yml`](examples/compose.pbaas.yml).
+</details>
 
-### Add monitoring
+<details>
+<summary><b>Staking node, or Grafana + Prometheus</b></summary>
+
+Staking has a different threat model — read [staking.md](docs/staking.md), then
+use [`examples/compose.staking.yml`](examples/compose.staking.yml), which keeps
+the RPC unreachable. For metrics, overlay the monitoring stack:
 
 ```bash
-docker compose \
-  -f examples/compose.testnet.yml \
-  -f examples/compose.monitoring.yml up -d
+docker compose -f examples/compose.testnet.yml \
+               -f examples/compose.monitoring.yml up -d
 ```
 
-Grafana on <http://localhost:3000> (admin/admin) with a provisioned dashboard,
-Prometheus on <http://localhost:9090>, and a
-[purpose-built exporter](exporter/README.md).
+Grafana on <http://localhost:3000> (admin/admin), Prometheus on
+<http://localhost:9090>, and a [purpose-built exporter](exporter/README.md).
+</details>
+
+---
+
+## Connect your app
+
+Credentials are random per node, generated on first start and stored `0600` in
+the data volume — nothing to configure, nothing checked into your repo.
+
+**From another container** (recommended — no ports published at all):
+
+```yaml
+services:
+  verus:
+    image: ghcr.io/chainvue/verus-docker:latest
+    environment: { CHAIN: VRSCTEST }
+    volumes: [verus-data:/home/verus/.komodo, verus-params:/home/verus/.zcash-params]
+  myapp:
+    build: .
+    # Node is at http://verus:18843; mount the volume read-only for credentials.
+    volumes: [verus-data:/verus:ro]
+    environment: { VERUS_CREDS_PATH: /verus/vrsctest/rpc-credentials }
+```
+
+**From your host**, with the loopback publish from the quickstart:
+
+```bash
+# Pull the generated credentials into your shell
+eval "$(docker exec verus-node cat /home/verus/.komodo/vrsctest/rpc-credentials)"
+
+curl -s --user "$RPC_USER:$RPC_PASSWORD" \
+  --data '{"jsonrpc":"1.0","id":"1","method":"getblockchaininfo","params":[]}' \
+  http://127.0.0.1:18843/ | jq .result
+```
+
+**Ready-made clients** in [`examples/rpc/`](examples/rpc/) — `curl.sh`,
+`node.mjs` and `python.py`, each of which finds the credentials, connects and
+reads a block with zero configuration. The `verus` CLI needs no flags either
+(the chain is injected): `docker exec verus-node verus getblockcount`.
+
+---
+
+## Is it working?
+
+```bash
+docker exec verus-node healthcheck.sh                    # liveness: responding?
+docker exec verus-node healthcheck.sh --require-synced   # readiness: caught up?
+docker exec verus-node cat /tmp/health.json
+```
+
+```json
+{"state":"syncing","chain":"VRSCTEST","blocks":2656,"headers":26880,
+ "verificationprogress":0.0023,"peers":1,"ts":"2026-07-26T18:21:12Z"}
+```
+
+Exit `0` healthy · `1` not responding · `2` responding but still syncing. The
+Docker `HEALTHCHECK` uses **liveness only**, so a node doing its initial sync is
+never restarted out from under itself.
+
+**Normal on a fresh node:** the first minute is the one-time ~740 MB parameter
+download, and `blocks` far below `headers` just means it is syncing — watch
+`verificationprogress`. **Not normal:**
+[zero peers](docs/troubleshooting.md#zero-peers) ·
+[RPC refused from the host](docs/troubleshooting.md#connection-refused-from-the-host) ·
+[every restart reindexes](docs/troubleshooting.md#every-restart-triggers-a-reindex) ·
+[stuck at one height](docs/troubleshooting.md#the-node-is-stuck-at-a-block-height).
 
 ---
 
 ## Why this image
 
-| | |
-| --- | --- |
-| **Verified binaries** | Upstream publishes no checksum asset. We pin a reviewed SHA-256 per architecture, and cross-check the VerusID signature file embedded in the release. The build fails hard if either check fails. |
-| **Never root** | Runs as uid/gid 1000. Root is supported only to remap `PUID`/`PGID` for host bind mounts, and privileges are dropped before the daemon starts. |
-| **Real multi-arch** | `linux/amd64` and `linux/arm64`, both from official upstream binaries. |
-| **Safe RPC defaults** | The RPC listener is restricted to the container network, never `0.0.0.0/0`. Random credentials are generated and stored 0600 in the volume. |
-| **Verified bootstrap** | We do not use the daemon's `-bootstrap` flag, which is destructive on every start and performs no verification. Our fetcher checks the published SHA-256 before extracting. |
-| **Honest health probes** | Liveness ("is it alive?") and readiness ("has it synced?") are separate questions with separate answers. |
-| **Clean shutdown** | SIGTERM is forwarded and awaited. verusd flushes for a long time; killing it early corrupts chain state. |
+**Verified binaries** — upstream publishes no checksum asset, so we pin a
+reviewed SHA-256 per architecture and cross-check the VerusID signature in the
+release; the build fails hard on mismatch. **Never root** — uid/gid 1000.
+**Real multi-arch** — amd64 and arm64 from official binaries. **Safe RPC
+defaults** — container network only, never `0.0.0.0/0`, random credentials
+stored `0600`. **Verified bootstrap** — we never use the daemon's `-bootstrap`
+flag, which is destructive on every start and verifies nothing. **Clean
+shutdown** — SIGTERM is forwarded and awaited, because verusd flushes for a
+long time and killing it early corrupts chain state.
 
 ---
 
 ## Image tags
 
-```
-v1.2.17-2-r1
-└──┬─────┘ └┬┘
-   │        └── image revision: our changes, same daemon
-   └─────────── the upstream VerusCoin release
-```
-
 | Tag | Moves? | Use it if... |
 | --- | --- | --- |
-| `v1.2.17-2-r1` | **Never** | You run this in production. Immutable — always these exact bits. |
-| `v1.2.17-2` | Yes | You want image fixes for one daemon version, but upgrade the daemon deliberately. |
+| `v1.2.17-2-r1` | **Never** | You run this in production. Always these exact bits. |
+| `v1.2.17-2` | Yes | You want image fixes for one daemon version, upgrading the daemon deliberately. |
 | `latest` | Yes | You are evaluating or developing. **Not** for a staking node. |
 
-`-rN` increments when the image changes but the daemon does not — a base image
-security rebuild, an entrypoint fix. It resets to `r1` on every daemon upgrade.
-
-Every release is built only by CI from a git tag, signed with cosign keyless,
-and ships an SPDX SBOM:
+`-rN` increments when the image changes but the daemon does not, and resets to
+`r1` on every daemon upgrade. Releases are built only by CI from a git tag,
+signed with cosign keyless, and ship an SPDX SBOM:
 
 ```bash
 cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
@@ -144,14 +219,8 @@ cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Confirm the daemon inside an image is a Foundation-signed release, using any
-Verus node:
-
-```bash
-make verify-release
-```
-
-Release process and automation: [`docs/maintainers/releasing.md`](docs/maintainers/releasing.md).
+`make verify-release` confirms the daemon inside an image is a Foundation-signed
+release, using any Verus node.
 
 ---
 
@@ -175,101 +244,56 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `USE_BOOTSTRAP` | `false` | Verified chain snapshot, first run only. |
 | `BOOTSTRAP_URL` | per chain | Override. Needs a `.sha256sum` or `.verusid` sidecar. |
 | `BOOTSTRAP_INSECURE_TLS` | `false` | Skip cert validation. The checksum comes over the same connection, so this trades away authenticity, not just convenience. |
-| `PARAMS_SOURCE` | `https://verus.io/zcparams` | Mirror for the Zcash parameters. |
-| `PARAMS_VERIFY_EXISTING` | `false` | Re-hash already-downloaded parameters on every start. Slow. |
+| `PARAMS_SOURCE` · `PARAMS_VERIFY_EXISTING` | `verus.io/zcparams` · `false` | Zcash parameter mirror, and whether to re-hash existing ones on every start (slow). |
 | `DOWNLOAD_LOCK_TIMEOUT` | `3600` | Seconds to wait for another container downloading the same parameter file into a shared volume. |
 | `ROOT_RPC_URL` | — | Root node as a URL, e.g. `http://vrsc:27486`. `https://` cannot work — see below. |
-| `ROOT_RPC_HOST` | — | Root node host for PBaaS chains. |
-| `ROOT_RPC_PORT` | per root chain | Root node RPC port. |
-| `ROOT_RPC_USER` | — | Root node RPC user. |
-| `ROOT_RPC_PASSWORD` | — | Root node RPC password. |
-| `ROOT_WAIT_TIMEOUT` | `900` | Seconds to wait for the root chain to become usable. |
-| `ROOT_MAX_TIP_AGE` | `1800` | How old the root chain's tip may be, in seconds, before a PBaaS chain will start. |
-| `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind the peers' height still counted as synced. |
-| `SYNCED_MAX_TIP_AGE` | `1800` | How old the chain tip may be, in seconds, and still count as synced. |
-| `HEALTH_FILE` | `/tmp/health.json` | Where the probe writes machine-readable state. |
-| `MAX_CONNECTIONS` | daemon default | Cap peers. Lowering it slows initial sync. |
-| `EXTRA_ARGS` | — | Passed to `verusd` verbatim. |
-| `RPC_TIMEOUT` | `60` | Timeout in seconds for the entrypoint's own RPC calls. |
-| `DEBUG` | `false` | Verbose entrypoint logging. |
+| `ROOT_RPC_HOST` · `ROOT_RPC_PORT` · `ROOT_RPC_USER` · `ROOT_RPC_PASSWORD` | — · per root chain · — · — | Root node connection for PBaaS chains, as separate parts instead of a URL. |
+| `ROOT_WAIT_TIMEOUT` · `ROOT_MAX_TIP_AGE` | `900` · `1800` | Seconds to wait for the root chain to become usable, and how stale its tip may be before a PBaaS chain will start. |
+| `SYNCED_TOLERANCE_BLOCKS` · `SYNCED_MAX_TIP_AGE` | `2` · `1800` | How far behind the peers' height, and how stale the tip, still counts as synced. |
+| `MAX_CONNECTIONS` · `EXTRA_ARGS` | daemon default · — | Cap peers (lowering slows sync); extra flags passed to `verusd` verbatim. |
+| `HEALTH_FILE` · `RPC_TIMEOUT` · `DEBUG` | `/tmp/health.json` · `60` · `false` | Probe state file, entrypoint RPC timeout, verbose entrypoint logging. |
 
 > **Note:** `addressindex` and `spentindex` are **not** configurable. verusd
 > forces both on regardless of configuration, so budget disk for them.
 
 ---
 
-## Health probes
+## Volumes
 
-```bash
-healthcheck.sh                   # liveness: is the daemon responding?
-healthcheck.sh --require-synced  # readiness: has it caught up?
-```
-
-Exit `0` healthy, `1` not responding, `2` responding but still syncing. Both
-write `/tmp/health.json`:
-
-```json
-{"state":"syncing","chain":"VRSCTEST","blocks":2656,"headers":26880,
- "verificationprogress":0.0023,"peers":1,"ts":"2026-07-26T18:21:12Z"}
-```
-
-A node doing its initial sync is **healthy** and must not be restarted — which
-is why the Docker `HEALTHCHECK` uses liveness only.
+`/home/verus/.komodo` holds VRSC and VRSCTEST chain data, config and
+`wallet.dat` — **back up `wallet.dat`**. `/home/verus/.verus` holds PBaaS chain
+data; mount the parent and let the daemon name the `pbaas/<hash>/`
+subdirectory. `/home/verus/.zcash-params` holds the ~740 MB Zcash parameters —
+share this one volume across every node on the host.
 
 ---
 
 ## PBaaS chains: read this first
 
 A PBaaS daemon does **not** read its chain definition from disk. On startup it
-calls `getcurrency` on the Verus root chain over plain HTTP; if that call fails
-it exits with `Cannot find blockchain data`.
+calls `getcurrency` on the Verus root chain over plain HTTP; if that fails it
+exits with `Cannot find blockchain data`. So "one env var to run any PBaaS
+chain" needs one more thing: **a reachable root node**. This image resolves it,
+waits for it to sync far enough, and verifies the chain exists before starting
+the daemon — so a typo gives a clear error instead of a cryptic one.
 
-So "one env var to run any PBaaS chain" needs one more thing: a reachable root
-node. This image resolves it, waits for it to sync far enough, verifies the
-chain actually exists, and only then starts the daemon — so a typo gives you a
-clear error instead of a cryptic one.
-
-Two caveats worth knowing up front:
-
-- **`https://` root URLs cannot work.** verusd speaks plain HTTP to a host:port
-  pair, so a public gateway such as `api.verus.services` cannot serve as the
-  root. Use your own node over a private network.
-- **PBaaS bootstraps work**, from a host that publishes a checksum over valid
-  TLS — but only for chains with a `chains/` entry, since the archive must be
-  extracted into a directory named after a hash. See
-  [PBaaS chains](docs/pbaas.md#bootstraps).
+**`https://` root URLs cannot work** (verusd speaks plain HTTP to a host:port
+pair, so `api.verus.services` cannot serve as a root — use your own node), and
+**bootstraps only work for chains with a [`chains/`](chains/) entry**, since the
+archive must land in a hash-named directory. Details:
+[pbaas.md](docs/pbaas.md#bootstraps).
 
 ---
 
-## Volumes
+## Deployments and documentation
 
-| Path | Holds | Notes |
-| --- | --- | --- |
-| `/home/verus/.komodo` | VRSC and VRSCTEST chain data, config, `wallet.dat` | Back up `wallet.dat`. |
-| `/home/verus/.verus` | PBaaS chain data (`pbaas/<hash>/`) | Mount the parent; the daemon names the subdirectory. |
-| `/home/verus/.zcash-params` | Zcash parameters (~740 MB) | Share this volume across every node. |
-
----
-
-## Deployments
-
-| Where | What |
-| --- | --- |
-| [`examples/compose.testnet.yml`](examples/compose.testnet.yml) | Quickstart testnet node |
-| [`examples/compose.mainnet.yml`](examples/compose.mainnet.yml) | Mainnet, production-shaped |
-| [`examples/compose.pbaas.yml`](examples/compose.pbaas.yml) | VRSC plus two PBaaS chains |
-| [`examples/compose.staking.yml`](examples/compose.staking.yml) | Staking node, RPC deliberately unreachable |
-| [`examples/compose.monitoring.yml`](examples/compose.monitoring.yml) | Exporter + Prometheus + Grafana overlay |
-| [`deploy/kubernetes/`](deploy/kubernetes/) | Plain manifests, kustomize-friendly |
-| [`deploy/helm/verus-node/`](deploy/helm/verus-node/) | Helm chart |
-
-In Kubernetes the pod becomes **Ready only once the chain is synced** — readiness
-means "safe to serve RPC". Liveness is a separate probe, so a node doing its
-initial sync is never restarted out from under itself.
-
-> Examples on this page pipe to `jq`. Install it, or drop the pipe.
-
-## Documentation
+Ready-made stacks: [testnet](examples/compose.testnet.yml) ·
+[mainnet](examples/compose.mainnet.yml) · [PBaaS](examples/compose.pbaas.yml) ·
+[staking](examples/compose.staking.yml) · [monitoring](examples/compose.monitoring.yml) ·
+[Kubernetes](deploy/kubernetes/) · [Helm](deploy/helm/verus-node/). In Kubernetes
+the pod becomes **Ready only once the chain is synced** — readiness means "safe
+to serve RPC", and liveness is a separate probe, so a node doing its initial
+sync is never restarted out from under itself.
 
 | Guide | For |
 | --- | --- |
@@ -281,70 +305,49 @@ initial sync is never restarted out from under itself.
 | [Monitoring](docs/monitoring.md) | Metrics reference, dashboard, alert rules |
 | [Troubleshooting](docs/troubleshooting.md) | Symptom-first fixes |
 | [Development](docs/development.md) | Building, testing, conventions, invariants |
-| [Releasing](docs/maintainers/releasing.md) | Maintainer runbook |
-| [Repository setup](docs/maintainers/repository-setup.md) | One-time GitHub settings |
+| [Releasing](docs/maintainers/releasing.md) · [Repo setup](docs/maintainers/repository-setup.md) | Maintainer runbooks |
 | [Licensing](LICENSING.md) | What is in the image, and under which licences |
-
-Runnable RPC examples in [`examples/rpc/`](examples/rpc/) — curl, Node and
-Python, each connecting and reading a block with no configuration.
 
 ## Building locally
 
 ```bash
-make build            # host architecture
-make build-multiarch  # amd64 + arm64
-make lint             # every linter, all containerised
-make smoke            # smoke test
-make up-testnet       # local testnet node
-make cli CMD=getinfo
-make down
+make build            # host architecture      make lint     # every linter, containerised
+make build-multiarch  # amd64 + arm64          make smoke    # smoke test
+make up-testnet       # local testnet node     make cli CMD=getinfo
+make logs             # follow logs            make down
 ```
 
-A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
-*Reopen in Container*, and a testnet node comes up alongside your editor.
+A [devcontainer](.devcontainer/) is included — *Reopen in Container* in VS Code
+brings up a testnet node alongside your editor.
 
 ---
 
 ## Community
 
-| | |
-| --- | --- |
-| Questions, ideas, show and tell | [Discussions](https://github.com/chainvue/verus-docker/discussions) |
-| Bugs and feature requests | [Issues](https://github.com/chainvue/verus-docker/issues) |
-| Adding a PBaaS chain | [Chain support template](https://github.com/chainvue/verus-docker/issues/new?template=chain_support.yml) — easy, and very welcome |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Security | [SECURITY.md](SECURITY.md) — report privately, never as an issue |
-| What is planned | [open issues](https://github.com/chainvue/verus-docker/issues) and [CHANGELOG.md](CHANGELOG.md) |
-| The wider Verus community | [verus.io/community](https://verus.io/community) |
+[Discussions](https://github.com/chainvue/verus-docker/discussions) for
+questions and ideas · [Issues](https://github.com/chainvue/verus-docker/issues)
+for bugs · [Chain support template](https://github.com/chainvue/verus-docker/issues/new?template=chain_support.yml)
+to add a PBaaS chain (easy, and very welcome) ·
+[CONTRIBUTING.md](CONTRIBUTING.md) ·
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md) (report
+privately, never as an issue) · [verus.io/community](https://verus.io/community).
 
-## Non-goals
-
-- **No mining images** — out of scope; plenty of miner projects exist already.
-- **No wallet GUI** — this is daemon and RPC infrastructure.
-- **No custody advice** — the project never asks for or handles your keys
-  beyond the standard `wallet.dat` in a volume you own.
+**Non-goals:** no mining images, no wallet GUI, no custody features — this is
+daemon and RPC infrastructure. The project never asks for or handles your keys
+beyond the standard `wallet.dat` in a volume you own.
 
 ---
 
-## Disclaimer
+## Disclaimer and licence
 
-An independent community project. **Not affiliated with, endorsed by, or
-operated by the Verus Coin Foundation.** We containerise the upstream daemon
-without modifying it; protocol issues belong
-[upstream](https://github.com/VerusCoin/VerusCoin).
+An independent community project, **not affiliated with or endorsed by the
+Verus Coin Foundation**. We containerise the upstream daemon without modifying
+it; protocol issues belong [upstream](https://github.com/VerusCoin/VerusCoin).
+Nothing here is financial advice — running a node carries operational risk, and
+running one with a wallet carries financial risk. You are responsible for your
+own keys, backups and security posture. Provided as-is, with no warranty.
 
-Nothing here is financial advice. Running a node carries operational risk, and
-running one with a wallet carries financial risk — you are responsible for your
-own keys, backups and security posture. Start with
-[production.md](docs/production.md) and, if you stake,
-[staking.md](docs/staking.md). Provided as-is, with no warranty of any kind.
-
-## Licence
-
-This repository is [Apache-2.0](LICENSE).
-
-The **published image is a composite work**: it bundles the upstream Verus
-daemon (MIT), which links Berkeley DB 6.2 (AGPL-3.0). That is upstream's own
-build choice, and upstream documents it. If you are doing a licence review,
-read **[LICENSING.md](LICENSING.md)** — it explains what is in the image, what
-it means in practice, and how to verify it from the signed SBOM.
+This repository is [Apache-2.0](LICENSE). The **published image is a composite
+work** — it bundles the upstream daemon (MIT), which links Berkeley DB 6.2
+(AGPL-3.0), upstream's own build choice. For a licence review read
+**[LICENSING.md](LICENSING.md)**.
