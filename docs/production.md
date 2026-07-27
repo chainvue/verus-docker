@@ -4,6 +4,10 @@ Written for the person who gets paged. Numbers here come from real deployments
 and from reading the daemon's source, not from guesswork — where something is
 uncertain, it says so.
 
+> Commands below use `docker compose exec verus ...` and assume you are in the
+> directory holding your compose file. From the repository root, add
+> `-f examples/compose.mainnet.yml`.
+
 ## Hardware sizing
 
 ### Memory
@@ -14,9 +18,12 @@ This is the number people get wrong, and getting it wrong corrupts data.
 | --- | --- | --- | --- |
 | VRSC mainnet | ~12 GiB at the chain tip | **16 GiB** | Measured in production |
 | VRSCTEST | 2–4 GiB | 8 GiB | |
-| CHIPS | ~6 GiB | 8 GiB | Observed |
-| vARRR | ~2 GiB | 3 GiB | Observed |
-| vDEX | ~4 GiB | 5 GiB | Observed |
+| CHIPS | ~6 GiB | 8 GiB | See `chains/chips.json` |
+| vARRR | ~2 GiB | 3 GiB | See `chains/varrr.json` |
+| vDEX | ~4 GiB | 5 GiB | See `chains/vdex.json` |
+
+PBaaS figures live in `chains/*.json` so there is one place to update when a
+chain's footprint changes; the table above mirrors them.
 
 **A memory limit below the working set does not degrade gracefully.** The
 kernel OOM-kills verusd, often mid-flush, and you come back to a corrupted
@@ -218,6 +225,23 @@ environment:
 For pure RPC infrastructure — explorers, indexers, dApp backends — there is no
 reason to carry keys. Do this.
 
+### One residual: PBaaS credentials on the daemon command line
+
+For root and testnet chains everything lives in the config file and nothing
+sensitive reaches `argv`. PBaaS chains are the exception: their data directory
+is named after a hash the daemon derives at runtime, so there is no config file
+to write ahead of time and `-rpcuser`/`-rpcpassword` go on the command line
+instead.
+
+`argv` is readable through `/proc/<pid>/cmdline` by any user on the **host**, so
+on a shared or multi-tenant host a local user can read a PBaaS node's RPC
+credentials. It is not readable from other containers, and the entrypoint
+redacts the password from its own logs.
+
+If that matters for your host, either run PBaaS chains somewhere single-tenant,
+or supply `RPC_USER`/`RPC_PASSWORD` you are willing to treat as host-visible and
+restrict `RPC_ALLOW_IP` accordingly. Root and testnet chains are unaffected.
+
 ### Everything else
 
 - The container runs as uid/gid 1000 and never needs root. Root is only used to
@@ -326,11 +350,13 @@ Raise the memory limit to 16 GiB for mainnet, or add swap. Check `dmesg` or
 
 ### Where the logs are
 
-Everything goes to stdout, so `docker compose logs` is the answer. There is also
-a `debug.log` in the data directory for the daemon's own detail:
+Everything goes to stdout, so `docker compose logs` is the answer — the
+entrypoint passes `-printtoconsole` precisely so that container logs are
+complete. A `debug.log` may also exist in the data directory, but do not rely on
+it being current:
 
 ```bash
-docker compose exec verus tail -100 /home/verus/.komodo/VRSC/debug.log
+docker compose exec verus sh -c 'tail -100 /home/verus/.komodo/VRSC/debug.log 2>/dev/null || echo "no debug.log; use docker compose logs"'
 ```
 
 Set `DEBUG=true` for verbose entrypoint logging.

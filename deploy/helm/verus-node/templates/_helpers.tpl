@@ -33,7 +33,7 @@ the chart fails rather than guessing.
 {{- define "verus-node.p2pPort" -}}
 {{- if .Values.ports.p2p -}}
 {{- .Values.ports.p2p -}}
-{{- else if eq .Values.chain "VRSC" -}}27485
+{{- else if eq (upper .Values.chain) "VRSC" -}}27485
 {{- else if eq (upper .Values.chain) "VRSCTEST" -}}18842
 {{- else -}}
 {{- fail (printf "chain %q is a PBaaS chain: set ports.p2p and ports.rpc explicitly (the daemon derives an unpredictable P2P port)" .Values.chain) -}}
@@ -43,7 +43,7 @@ the chart fails rather than guessing.
 {{- define "verus-node.rpcPort" -}}
 {{- if .Values.ports.rpc -}}
 {{- .Values.ports.rpc -}}
-{{- else if eq .Values.chain "VRSC" -}}27486
+{{- else if eq (upper .Values.chain) "VRSC" -}}27486
 {{- else if eq (upper .Values.chain) "VRSCTEST" -}}18843
 {{- else -}}
 {{- fail (printf "chain %q is a PBaaS chain: set ports.p2p and ports.rpc explicitly" .Values.chain) -}}

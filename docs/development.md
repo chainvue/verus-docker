@@ -69,7 +69,7 @@ Individual targets exist too: `make shellcheck`, `make helm-lint`,
 make smoke
 ```
 
-23 assertions in about two minutes: the container runs unprivileged, the
+A couple of minutes of assertions: the container runs unprivileged, the
 generated config is safe, credentials are 0600, the CLI wrapper needs no
 arguments, liveness and readiness genuinely disagree while syncing, SIGTERM
 produces a clean shutdown, and a restart neither reindexes nor re-downloads.

@@ -13,6 +13,9 @@
 # This implementation is idempotent, verifies the published SHA-256 before
 # extracting, and aborts loudly on any mismatch.
 
+readonly BOOTSTRAP_SENTINEL=".bootstrap-complete"
+readonly BOOTSTRAP_PARTIAL=".bootstrap-in-progress"
+
 # Fetch the sidecar checksum for a bootstrap archive.
 # Echoes the hex digest on stdout.
 _fetch_bootstrap_checksum() {
@@ -126,8 +129,14 @@ maybe_bootstrap() {
 	fi
 
 	if dir_has_chain_data "$datadir"; then
-		log_info "chain data already present in ${datadir} — skipping bootstrap"
-		return 0
+		if [[ -f "${datadir}/${BOOTSTRAP_SENTINEL}" ]] || [[ ! -f "${datadir}/${BOOTSTRAP_PARTIAL}" ]]; then
+			log_info "chain data already present in ${datadir} — skipping bootstrap"
+			return 0
+		fi
+		log_warn "a previous bootstrap did not finish extracting; redoing it"
+		log_warn "  (partial chain data would otherwise be mistaken for a good sync)"
+		rm -rf -- "${datadir}/blocks" "${datadir}/chainstate" "${datadir}/notarisations"
+		rm -f -- "${datadir}/${BOOTSTRAP_PARTIAL}"
 	fi
 
 	url="${BOOTSTRAP_URL:-$(chain_meta '.bootstrap.url')}"
@@ -157,10 +166,15 @@ maybe_bootstrap() {
 	verify_sha256 "$archive" "$checksum" "bootstrap archive"
 
 	log_info "extracting into ${datadir} ..."
+	# Mark the directory as mid-extract so an interrupted tar cannot be mistaken
+	# for a completed bootstrap on the next start.
+	: >"${datadir}/${BOOTSTRAP_PARTIAL}"
 	if ! tar -xzf "$archive" -C "$datadir"; then
 		rm -f -- "$archive"
-		die "bootstrap extraction failed; ${datadir} may be incomplete — remove it and retry"
+		die "bootstrap extraction failed; it will be redone automatically on the next start"
 	fi
+	rm -f -- "${datadir}/${BOOTSTRAP_PARTIAL}"
+	: >"${datadir}/${BOOTSTRAP_SENTINEL}"
 
 	rm -f -- "$archive"
 	log_info "bootstrap complete; the daemon will sync the remaining blocks from the network"

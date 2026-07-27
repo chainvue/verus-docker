@@ -43,7 +43,7 @@ SHELL_SCRIPTS := rootfs/usr/local/bin/entrypoint.sh \
 .DEFAULT_GOAL := help
 .PHONY: help build build-multiarch build-exporter lint shellcheck shfmt shfmt-fix \
         hadolint actionlint env-docs json-lint helm-lint k8s-validate py-check smoke \
-        up-testnet up-monitoring cli logs shell down down-monitoring clean version
+        up-testnet up-published up-monitoring cli logs shell down down-monitoring clean version
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -121,9 +121,13 @@ version: ## Show the next release tag
 
 ## --- Run ------------------------------------------------------------------
 
-up-testnet: ## Start a local testnet node via compose
+up-testnet: build ## Build this working tree and start a testnet node from it
+	VERUS_IMAGE=$(IMAGE):$(TAG) docker compose -f $(COMPOSE_TESTNET) up -d
+	@echo "Started $(IMAGE):$(TAG). Follow along with: make logs"
+
+up-published: ## Start a testnet node from the published image instead
 	docker compose -f $(COMPOSE_TESTNET) up -d
-	@echo "Started. Follow along with: make logs"
+	@echo "Started the published image. Follow along with: make logs"
 
 up-monitoring: ## Start testnet + exporter + Prometheus + Grafana
 	docker compose -f $(COMPOSE_TESTNET) -f $(COMPOSE_MONITORING) up -d --build

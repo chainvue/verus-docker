@@ -13,7 +13,8 @@ name: verus-testnet
 
 services:
   verus:
-    image: ghcr.io/chainvue/verus-docker:latest
+    # Overridable so `make up-testnet` can run a locally built image.
+    image: ${VERUS_IMAGE:-ghcr.io/chainvue/verus-docker:latest}
     container_name: verus-testnet
     restart: unless-stopped
 

@@ -130,6 +130,15 @@ The conventional assignments recorded in `chains/` follow the daemon's own
 
 Any free ports work — these are just what the metadata suggests.
 
+## A security note specific to PBaaS
+
+Because there is no config file to write before the daemon derives its data
+directory, a PBaaS node receives `-rpcuser` and `-rpcpassword` on its command
+line. That makes them readable via `/proc/<pid>/cmdline` to users on the host —
+not from other containers, and never in the logs, but worth knowing on a shared
+host. Root and testnet chains put the same values in a 0600 config file
+instead. See [production.md](production.md#security).
+
 ## Data directories
 
 PBaaS chains do not live under `.komodo`:
@@ -214,9 +223,10 @@ template or open the PR directly with a file following `chains/schema.json`:
 {
   "name": "MYCHAIN",
   "kind": "pbaas",
-  "currencyid": "i...",
+  "currencyid": "iAbc...",
+  "datadir_hash": "40-hex-chars-if-you-know-it",
   "ports": { "p2p": 25777, "rpc": 25778 },
-  "notes": "Observed memory use around 4 GB."
+  "notes": "Observed memory use in production is ~4 GB at the chain tip."
 }
 ```
 

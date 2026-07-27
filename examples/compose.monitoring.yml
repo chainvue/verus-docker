@@ -16,8 +16,17 @@
 # Both host ports are configurable if they clash with something else:
 #   GRAFANA_PORT=3001 PROMETHEUS_PORT=9091 docker compose ... up -d
 #
-# Pairing it with a different node stack means changing two things below:
-# the volume the exporter reads credentials from, and VERUS_RPC_PORT.
+# Pairing it with another node stack is done with environment variables, not by
+# editing this file. For the mainnet stack:
+#
+#   VERUS_RPC_PORT=27486 \
+#   VERUS_CREDS=/data/VRSC/rpc-credentials \
+#   VERUS_DATA_VOLUME=verus-data-vrsc \
+#   docker compose -f examples/compose.mainnet.yml -f examples/compose.monitoring.yml up -d
+#
+# The PBaaS stack is the one exception: its services are named verus-mainnet,
+# chips and varrr rather than `verus`, so the depends_on below does not match.
+# Scrape those with one exporter per chain — see docs/monitoring.md.
 # =============================================================================
 
 services:
@@ -32,19 +41,19 @@ services:
         condition: service_healthy
     environment:
       # Reach the node by its compose service name over the internal network.
-      VERUS_RPC_HOST: verus
-      VERUS_RPC_PORT: "18843" # VRSCTEST. Mainnet is 27486.
+      VERUS_RPC_HOST: ${VERUS_SERVICE:-verus}
+      VERUS_RPC_PORT: ${VERUS_RPC_PORT:-18843} # VRSCTEST. Mainnet is 27486.
 
       # Rather than duplicating credentials, read the file the entrypoint
       # generated inside the node's data volume.
-      VERUS_CREDENTIALS_FILE: /data/vrsctest/rpc-credentials
+      VERUS_CREDENTIALS_FILE: ${VERUS_CREDS:-/data/vrsctest/rpc-credentials}
 
       # Wallet balances are off by default; a metrics endpoint is usually less
       # protected than the RPC behind it.
       # EXPORTER_EXPOSE_BALANCES: "true"
     volumes:
       # Read-only: the exporter needs the credentials file and nothing else.
-      - verus-data-vrsctest:/data:ro
+      - ${VERUS_DATA_VOLUME:-verus-data-vrsctest}:/data:ro
     expose:
       - "9838"
     # Not published to the host: Prometheus reaches it over the compose network.

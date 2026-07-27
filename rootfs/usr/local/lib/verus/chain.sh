@@ -28,6 +28,7 @@ CHAIN_CONF=""    # empty for PBaaS: see pbaas.sh, settings go on the CLI
 CHAIN_META_FILE=""
 DEFAULT_P2P_PORT=""
 DEFAULT_RPC_PORT=""
+ROOT_CHAIN_CANON=""
 
 resolve_chain() {
 	local requested="${CHAIN:-VRSC}"
@@ -65,7 +66,12 @@ resolve_chain() {
 		# assume a normalisation the daemon does not apply.
 		CHAIN_NAME="$requested"
 		CHAIN_KIND="pbaas"
-		if [[ "${ROOT_CHAIN:-VRSC}" == "VRSCTEST" || "${ROOT_CHAIN:-VRSC}" == "vrsctest" ]]; then
+		# Normalise once. Comparing raw case in more than one place produced a
+		# split brain where ROOT_CHAIN=vrsc picked the mainnet data home but
+		# the testnet config path.
+		ROOT_CHAIN_CANON="${ROOT_CHAIN:-VRSC}"
+		ROOT_CHAIN_CANON="${ROOT_CHAIN_CANON^^}"
+		if [[ "$ROOT_CHAIN_CANON" == "VRSCTEST" ]]; then
 			CHAIN_HOME="${VERUS_HOME}/.verustest"
 		else
 			CHAIN_HOME="${VERUS_HOME}/.verus"

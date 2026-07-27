@@ -25,23 +25,12 @@ step.
 
 ## Why a purpose-built exporter
 
-There was no usable off-the-shelf option, and the reasoning is worth recording
-so nobody re-litigates it:
+No off-the-shelf exporter works against verusd — the closest candidate calls
+five RPCs the daemon does not implement and dies on the first. The full
+evaluation is in [`exporter/README.md`](../exporter/README.md).
 
-| Candidate | Verdict |
-| --- | --- |
-| `jvstein/bitcoin-prometheus-exporter` | Active, BSD-3 — but calls `getrpcinfo`, `uptime`, `getmemoryinfo`, `getchaintxstats` and `estimatesmartfee`, none of which exist in verusd. It issues them unguarded and dies on the first. |
-| `zcash-hackworks/zcashd_exporter` | Archived since 2019, no license stated. |
-| `scabraha/komodo-exporter` | Unrelated: Komodo the container platform (komo.do), not the cryptocurrency. |
-| A Verus-specific exporter | Did not exist. |
-
-Patching the first would have meant deleting five of its twelve calls and adding
-Verus-native ones — most of the code, carried as a fork. ~350 lines of Python
-standard library was smaller and clearer, and it lets us expose things no
-Bitcoin-shaped exporter models.
-
-Every RPC call is guarded individually, so an unsupported or failing method
-costs that method's metrics and nothing else.
+Every RPC call here is guarded individually, so an unsupported or failing
+method costs that method's metrics and nothing else.
 
 ## Metrics
 
@@ -154,7 +143,7 @@ remap on import.
 | Alert | Fires when | Severity |
 | --- | --- | --- |
 | `VerusNodeDown` | `verus_up == 0` or the target vanished, 5m | critical |
-| `VerusHeightStuck` | No new blocks in 30m | warning |
+| `VerusHeightStuck` | No new blocks in 30m, sustained 15m (so ~45m) | warning |
 | `VerusNoPeers` | Zero peers, 10m | critical |
 | `VerusFewPeers` | Under 3 peers, 30m | warning |
 | `VerusNotSynced` | Not synced for 6h | warning |
@@ -180,6 +169,20 @@ node and be muted, which is worse than no alert. This one is for a node that
   earning nothing while looking perfectly healthy
 
 The rest are worth a ticket, not a phone call.
+
+## Multiple chains on one host
+
+The exporter is one process per node, and every metric carries a `chain` label,
+so a multi-chain host runs one exporter per chain and gets one dashboard with a
+`chain` selector. Give each its own `EXPORTER_PORT` and point Prometheus at all
+of them:
+
+```yaml
+scrape_configs:
+  - job_name: verus
+    static_configs:
+      - targets: [verus-exporter-vrsc:9838, verus-exporter-chips:9838]
+```
 
 ## Kubernetes
 

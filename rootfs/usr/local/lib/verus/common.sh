@@ -75,7 +75,10 @@ http_get_to_stdout() {
 http_download() {
 	local url="$1" dest="$2"
 	shift 2
-	local part="${dest}.part"
+	# PID-scoped: the params volume is deliberately shared between containers,
+	# and a fixed .part name meant two nodes booting at once interleaved writes
+	# into the same file and both failed the checksum.
+	local part="${dest}.part.$$"
 
 	rm -f -- "$part"
 	if ! curl --fail --silent --show-error --location \
@@ -154,12 +157,16 @@ rpc_call() {
 	local url="$1" user="$2" pass="$3" method="$4" params="${5:-[]}"
 	local response
 
-	response="$(curl --fail-with-body --silent --show-error \
-		--connect-timeout 10 --max-time "${RPC_TIMEOUT:-60}" \
-		--user "${user}:${pass}" \
-		--header 'Content-Type: application/json' \
-		--data "{\"jsonrpc\":\"1.0\",\"id\":\"verus-docker\",\"method\":\"${method}\",\"params\":${params}}" \
-		"$url" 2>/dev/null)" || {
+	# Credentials go in via --config on stdin, never --user: this runs every 30
+	# seconds from the healthcheck, and argv is world-readable through
+	# /proc/<pid>/cmdline to any user on the host.
+	response="$(printf 'user = "%s:%s"\n' "$user" "$pass" |
+		curl --fail-with-body --silent --show-error \
+			--connect-timeout 10 --max-time "${RPC_TIMEOUT:-60}" \
+			--config - \
+			--header 'Content-Type: application/json' \
+			--data "{\"jsonrpc\":\"1.0\",\"id\":\"verus-docker\",\"method\":\"${method}\",\"params\":${params}}" \
+			"$url" 2>/dev/null)" || {
 		# A non-2xx response still carries a JSON body with the real reason.
 		if [[ -n "${response:-}" ]]; then
 			log_debug "RPC ${method} failed: $(jq -r '.error.message // .' <<<"$response" 2>/dev/null || printf '%s' "$response")"

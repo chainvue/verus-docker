@@ -2,12 +2,15 @@
   "name": "VARRR",
   "kind": "pbaas",
   "datadir_hash": "e9e10955b7d16031e3d6f55d9c908a038e3ae47d",
-  "ports": { "p2p": 20777, "rpc": 20778 },
+  "ports": {
+    "p2p": 20777,
+    "rpc": 20778
+  },
   "bootstrap": {
     "url": "https://bootstrap.dexstats.info/VARRR-bootstrap.tar.gz",
     "signer": "dexstatsbootstrap@",
     "approximate_size_bytes": 5460680519,
     "tls_note": "bootstrap.dexstats.info serves an expired certificate issued for a different hostname. verus-docker does not use PBaaS bootstraps; this URL is recorded for reference only."
   },
-  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is around 3 GB."
+  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is ~2 GB observed at the chain tip."
 }

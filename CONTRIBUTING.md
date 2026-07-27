@@ -24,8 +24,9 @@ one of the most useful. It is a single JSON file:
   "name": "MYCHAIN",
   "kind": "pbaas",
   "currencyid": "iAbc...",
+  "datadir_hash": "40-hex-chars-if-you-know-it",
   "ports": { "p2p": 25777, "rpc": 25778 },
-  "notes": "Observed memory use around 4 GB."
+  "notes": "Observed memory use in production is ~4 GB at the chain tip."
 }
 ```
 
@@ -64,7 +65,7 @@ Full detail, including repository layout and shell conventions:
 
 ```bash
 make lint    # shellcheck, shfmt, hadolint, actionlint, helm, kubeconform, env-docs
-make smoke   # 23 assertions against a real node, ~2 minutes
+make smoke   # runs a real node and asserts against it, ~2 minutes
 ```
 
 CI runs the same commands, so a green `make lint && make smoke` locally means a
@@ -128,21 +129,14 @@ what counts.
 
 ## The invariants
 
-These hold regardless of what an issue seems to ask for. If your change
-conflicts with one, **say so in the PR rather than working around it** — the
-invariant might be wrong, but that is a conversation to have explicitly.
+Nine rules hold regardless of what an issue seems to ask for — no PBaaS
+allowlist, never overwrite an existing config, graceful shutdown is sacred, and
+so on. They live in one place so they cannot drift:
+**[docs/development.md#invariants](docs/development.md#invariants)**.
 
-1. Any PBaaS chain works by name. `chains/` is never an allowlist.
-2. Never overwrite an existing `<chain>.conf`.
-3. Graceful shutdown is sacred: SIGTERM reaches verusd and is awaited, and
-   every example keeps a grace period of at least 120s.
-4. Non-root at runtime. Root only for `PUID`/`PGID` remapping, dropped before
-   the daemon starts.
-5. RPC is never publicly exposed by default; `0.0.0.0/0` warns loudly.
-6. Everything downloaded is verified, and failure is loud, never silent.
-7. No secrets in the repository or in image layers.
-8. The entrypoint is idempotent on every path.
-9. Nothing moves, deletes or transmits `wallet.dat`. Backup guidance only.
+If your change conflicts with one, **say so in the PR rather than working
+around it**. The invariant might be wrong, but that is a conversation to have
+explicitly.
 
 ## Things that are out of scope
 
@@ -157,8 +151,8 @@ Not because they are bad, but because this project is deliberately narrow:
 
 ## Review and merge
 
-Pull requests need CI green and one maintainer approval. `main` is protected;
-everything lands through a PR.
+Pull requests need CI green. `main` is protected — everything lands through a
+PR, nobody pushes to it directly — and a maintainer merges once the checks pass.
 
 Release mechanics are automated and documented in
 [docs/maintainers/releasing.md](docs/maintainers/releasing.md) — merging your PR

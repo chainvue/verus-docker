@@ -34,6 +34,7 @@ docker run -d --name verus \
   -v verus-params:/home/verus/.zcash-params \
   ghcr.io/chainvue/verus-docker:latest
 
+# give it a minute first — it fetches the Zcash parameters on first start
 docker exec verus verus getinfo
 ```
 
@@ -177,6 +178,7 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `ROOT_WAIT_TIMEOUT` | `900` | Seconds to wait for the root chain to become usable. |
 | `ROOT_MIN_PROGRESS` | `0.999` | How synced the root chain must be before a PBaaS chain starts. |
 | `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind tip still counted as synced. |
+| `HEALTH_FILE` | `/tmp/health.json` | Where the probe writes machine-readable state. |
 | `MAX_CONNECTIONS` | daemon default | Cap peers. Lowering it slows initial sync. |
 | `EXTRA_ARGS` | — | Passed to `verusd` verbatim. |
 | `RPC_TIMEOUT` | `60` | Timeout in seconds for the entrypoint's own RPC calls. |
@@ -279,7 +281,7 @@ Python, each connecting and reading a block with no configuration.
 make build            # host architecture
 make build-multiarch  # amd64 + arm64
 make lint             # every linter, all containerised
-make smoke            # 23-assertion smoke test
+make smoke            # smoke test
 make up-testnet       # local testnet node
 make cli CMD=getinfo
 make down
@@ -292,13 +294,12 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 
 ## Roadmap
 
-- [x] **Phase 1** — core image, entrypoint, CLI wrapper, health probes
-- [x] **Phase 2** — Compose examples, Kubernetes manifests, Helm chart, Prometheus exporter, Grafana dashboard
-- [x] **Phase 3** — release automation, multi-arch signed releases, upstream watcher
-- [x] **Phase 4** — full documentation set
-- [x] **Phase 5** — community and governance files
-- [x] **Phase 6** — clean-room verification and final polish
-- [x] **First release** — `v1.2.17-2-r1` published, signed, with an SBOM
+- Docker Hub mirror alongside ghcr.io
+- Metadata for more PBaaS chains — [contributions especially welcome](CONTRIBUTING.md)
+- Testnet PBaaS support once chains exist there
+- A published Grafana dashboard ID
+
+History lives in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

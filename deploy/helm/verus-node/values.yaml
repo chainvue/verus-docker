@@ -44,6 +44,11 @@ fullnameOverride: ""
 # A bootstrap is a large verified snapshot download that must complete BEFORE
 # the daemon starts. Off by default: it is a deliberate seeding operation, not
 # something you want happening on an unexpected pod reschedule.
+#
+# If you turn this on, RAISE probes.startup.failureThreshold. Mainnet is ~22 GB
+# and the RPC stays down throughout; with the default 30-minute startup budget
+# the kubelet kills the pod mid-download and the next attempt starts from zero,
+# which is an expensive crash loop rather than a slow success.
 useBootstrap: false
 
 # Full transaction index. Costs significant disk. Must be decided before the
@@ -136,7 +141,9 @@ probes:
     enabled: true
     periodSeconds: 15
     timeoutSeconds: 15
-    failureThreshold: 120 # 30 minutes of grace to come up
+    # 15s x 120 = 30 minutes. Raise substantially when useBootstrap is true:
+    # the download has to finish before the RPC answers at all.
+    failureThreshold: 120
   liveness:
     enabled: true
     periodSeconds: 30

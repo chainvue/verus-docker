@@ -46,6 +46,15 @@ maybe_drop_privileges() {
 
 	[[ "$(id -u)" == "0" ]] || return 0
 
+	[[ "$target_uid" =~ ^[0-9]+$ && "$target_gid" =~ ^[0-9]+$ ]] ||
+		die "PUID and PGID must be numeric (got PUID='${target_uid}' PGID='${target_gid}')"
+
+	# Dropping to uid 0 is not dropping anything, and re-execing would loop
+	# forever because this function would run again and find itself root.
+	if [[ "$target_uid" == "0" ]]; then
+		die "PUID=0 would run the daemon as root. This image never needs root; unset PUID or set it to a non-zero uid."
+	fi
+
 	log_info "started as root; remapping the verus user to ${target_uid}:${target_gid} and dropping privileges"
 
 	current_gid="$(id -g verus)"
@@ -176,7 +185,13 @@ build_verusd_args() {
 forward_signal() {
 	local sig="$1"
 
-	[[ -n "$VERUSD_PID" ]] || exit 0
+	# Before the daemon exists there is nothing to forward to; the long-running
+	# work at that point is a download, which is safe to abandon because
+	# partial files are named .part and cleaned up on the next run.
+	if [[ -z "$VERUSD_PID" ]]; then
+		log_info "received SIG${sig} before the daemon started; exiting"
+		exit 0
+	fi
 
 	log_info "received SIG${sig}; asking verusd to shut down cleanly"
 	log_info "verusd flushes its databases on exit — do NOT kill it early, that is how"
@@ -200,9 +215,6 @@ run_verusd() {
 
 	"$VERUSD_BIN" "${args[@]}" &
 	VERUSD_PID=$!
-
-	trap 'forward_signal TERM' TERM
-	trap 'forward_signal INT' INT
 
 	# `wait` is interrupted by a trapped signal and returns >128; in that case
 	# we go around again and keep waiting for the real exit.
@@ -230,6 +242,11 @@ main() {
 	local -a verusd_args=()
 
 	maybe_drop_privileges "$@"
+
+	# Installed before any long-running work, not just before exec, so a stop
+	# during the parameter or bootstrap download is handled cleanly.
+	trap 'forward_signal TERM' TERM
+	trap 'forward_signal INT' INT
 
 	require_cmd curl jq awk tar sha256sum
 

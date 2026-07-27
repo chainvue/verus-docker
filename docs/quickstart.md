@@ -110,9 +110,9 @@ interrupting that corrupts chain state and forces a reindex measured in hours.
 
 ---
 
-# Where to go next
+## Where to go next
 
-## If you are a developer
+### If you are a developer
 
 You want an RPC endpoint to build against.
 
@@ -151,12 +151,21 @@ docker compose -f examples/compose.testnet.yml exec verus \
 **Reaching the node from your own container** — put it on the same network and
 use the service name. This is the intended pattern:
 
+If your app lives in the *same* compose file, the service name just works. From
+a *different* compose project, join the node's network explicitly:
+
 ```yaml
 services:
   my-app:
     environment:
       VERUS_RPC_URL: http://verus:18843
-    networks: [default]
+    networks: [verus]
+
+networks:
+  verus:
+    # Created by compose.testnet.yml, whose project name is verus-testnet.
+    name: verus-testnet_default
+    external: true
 ```
 
 **Reaching it from the host.** The RPC port is deliberately not published. If
@@ -174,7 +183,7 @@ in Container*, and a testnet node comes up alongside your editor. See
 Next: [pbaas.md](pbaas.md) if you are building against a PBaaS chain or need
 cross-chain data.
 
-## If you are an operator
+### If you are an operator
 
 You want a node that stays up and does not lose anything.
 

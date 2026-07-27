@@ -66,6 +66,8 @@ ensure_params() {
 		http_download "${source}/${name}" "$path" ||
 			die "failed to download ${name} from ${source}"
 
+		# Another container sharing this volume may have finished the same file
+		# while we were fetching it. Either copy is valid once verified.
 		verify_sha256 "$path" "$expected" "$name"
 		log_info "  ${name}: $(human_bytes "$(stat -c %s "$path")")"
 	done

@@ -102,7 +102,8 @@ cosign verify ghcr.io/chainvue/verus-docker:$TAG \
   --certificate-identity-regexp 'https://github.com/chainvue/verus-docker/.github/workflows/release.yml@.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
-docker run --rm ghcr.io/chainvue/verus-docker:$TAG --version
+docker run --rm --entrypoint /opt/verus-cli/verusd \
+  ghcr.io/chainvue/verus-docker:$TAG --version
 ```
 
 ### Why the scan runs after publishing
@@ -201,6 +202,7 @@ that supply chain.
 | What | Pinned to | Updated by |
 | --- | --- | --- |
 | GitHub Actions | 40-character commit SHA, with the version in a trailing comment | Dependabot (weekly) |
+| Version strings in README/docs | Hand-written; check them when cutting a release | Manually |
 | Linter and tooling images | Explicit version tag | Manually |
 | The Verus daemon | SHA-256 of the release archive, per architecture | `upstream-watch.yml` (daily PR) |
 | The base image | Tag, with digest drift watched separately | `rebuild.yml` (weekly PR) |

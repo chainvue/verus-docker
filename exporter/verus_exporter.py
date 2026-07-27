@@ -444,11 +444,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def _respond(self, status: int, body: str, content_type: str = "text/plain") -> None:
         payload = body.encode()
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            # Prometheus timed out and hung up mid-write. Normal under load,
+            # and not worth a traceback on every occurrence.
+            pass
 
     def log_message(self, fmt: str, *args: Any) -> None:
         # Default logging writes one line per scrape, which is pure noise.

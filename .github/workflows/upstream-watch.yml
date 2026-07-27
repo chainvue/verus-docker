@@ -28,7 +28,11 @@ jobs:
 
       - name: Pin the new version
         id: bump
-        run: bash scripts/bump-upstream.sh ${{ inputs.version }}
+        # Via env, not interpolated into the script: only write-access users can
+        # dispatch this, but shell-shaped input never belongs in a run: body.
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: bash scripts/bump-upstream.sh "${REQUESTED_VERSION}"
 
       - name: Did anything change?
         id: changed

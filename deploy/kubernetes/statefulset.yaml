@@ -40,30 +40,16 @@ spec:
           image: ghcr.io/chainvue/verus-docker:latest
           imagePullPolicy: IfNotPresent
 
+          # envFrom, not individual keyRefs: any key you add to the ConfigMap
+          # (RPC_PORT, P2P_PORT, IDINDEX, ...) reaches the container without
+          # editing this file. Individual refs silently ignored everything the
+          # StatefulSet did not already name, which made overlays look wired
+          # up when they were not.
+          envFrom:
+            - configMapRef:
+                name: verus-config
+
           env:
-            - name: CHAIN
-              valueFrom:
-                configMapKeyRef:
-                  name: verus-config
-                  key: CHAIN
-            - name: USE_BOOTSTRAP
-              valueFrom:
-                configMapKeyRef:
-                  name: verus-config
-                  key: USE_BOOTSTRAP
-            - name: TXINDEX
-              valueFrom:
-                configMapKeyRef:
-                  name: verus-config
-                  key: TXINDEX
-            # Allow the whole cluster pod CIDR to reach the RPC. Narrow this to
-            # your actual pod CIDR, and rely on a NetworkPolicy for real
-            # enforcement — rpcallowip is coarse.
-            - name: RPC_ALLOW_IP
-              valueFrom:
-                configMapKeyRef:
-                  name: verus-config
-                  key: RPC_ALLOW_IP
             # optional: omit the Secret entirely and the entrypoint generates
             # credentials into the data volume instead, as the docs promise.
             - name: RPC_USER

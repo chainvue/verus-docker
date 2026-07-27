@@ -25,7 +25,7 @@ Repository verbs:
 
   make help             list everything
   make lint             every linter (containerised, nothing to install)
-  make smoke            23-assertion smoke test
+  make smoke            smoke test
   make build            build the image for this architecture
 
 The node starts empty and syncs from genesis; it answers RPC immediately, so
