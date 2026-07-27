@@ -39,16 +39,8 @@ docker exec verus verus getinfo
 ```
 
 ```json
-{
-  "version": 2000753,
-  "VRSCversion": "1.2.17-2",
-  "blocks": 26880,
-  "name": "VRSCTEST",
-  "chainid": "iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq"
-}
+{ "VRSCversion": "1.2.17-2", "blocks": 26880, "name": "VRSCTEST", ... }
 ```
-
-(Trimmed — the real response carries about twenty more fields.)
 
 ### Talk to it over HTTP
 
@@ -75,6 +67,12 @@ Python clients that need no configuration.
 ```bash
 -e CHAIN=VRSC
 ```
+
+One line, but a much bigger commitment: **days of initial sync, ~150 GB of
+disk and ~12 GiB of RAM at the chain tip.** Read the
+[testnet vs mainnet comparison](docs/quickstart.md#switching-to-mainnet) before
+starting, and consider `USE_BOOTSTRAP=true` to seed from a verified snapshot
+instead of syncing from genesis.
 
 ### Run a PBaaS chain
 
@@ -146,8 +144,8 @@ cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Verify that the daemon inside an image is a genuinely signed Foundation
-release, using any Verus node:
+Confirm the daemon inside an image is a Foundation-signed release, using any
+Verus node:
 
 ```bash
 make verify-release
@@ -170,15 +168,16 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `RPC_PORT` / `P2P_PORT` | per chain | VRSC 27486/27485, VRSCTEST 18843/18842. PBaaS chains take them from `chains/` metadata if present, otherwise required. |
 | `RPC_ALLOW_IP` | `auto` | `auto` = the container's own network. Never silently `0.0.0.0/0`. |
 | `TXINDEX` | `1` | Full transaction index. Costs disk. |
-| `IDINDEX`, `TIMESTAMPINDEX`, `INSIGHT_EXPLORER` | `false` | Applied at config creation only; changing later needs `-reindex`. |
+| `IDINDEX`, `TIMESTAMPINDEX`, `INSIGHT_EXPLORER` | `false` | Applied at config creation only; changing later needs `-reindex`. `TIMESTAMPINDEX` does nothing without `INSIGHT_EXPLORER`, which forces it either way. |
 | `DISABLE_WALLET` | `false` | Wallet-less infrastructure node. |
 | `ENABLE_STAKING` | `false` | Stake with `-mint`. Keep RPC private. |
 | `WALLET_WARNING` | `true` | Set `false` to silence the wallet-backup reminder on start. |
 | `USE_BOOTSTRAP` | `false` | Verified chain snapshot, first run only. |
-| `BOOTSTRAP_URL` | per chain | Override. A `.sha256sum` sidecar must exist. |
-| `BOOTSTRAP_INSECURE_TLS` | `false` | Skip cert validation (checksum still enforced). |
+| `BOOTSTRAP_URL` | per chain | Override. Needs a `.sha256sum` or `.verusid` sidecar. |
+| `BOOTSTRAP_INSECURE_TLS` | `false` | Skip cert validation. The checksum comes over the same connection, so this trades away authenticity, not just convenience. |
 | `PARAMS_SOURCE` | `https://verus.io/zcparams` | Mirror for the Zcash parameters. |
 | `PARAMS_VERIFY_EXISTING` | `false` | Re-hash already-downloaded parameters on every start. Slow. |
+| `DOWNLOAD_LOCK_TIMEOUT` | `3600` | Seconds to wait for another container downloading the same parameter file into a shared volume. |
 | `ROOT_RPC_URL` | — | Root node as a URL, e.g. `http://vrsc:27486`. `https://` cannot work — see below. |
 | `ROOT_RPC_HOST` | — | Root node host for PBaaS chains. |
 | `ROOT_RPC_PORT` | per root chain | Root node RPC port. |
@@ -306,35 +305,24 @@ A [devcontainer](.devcontainer/) is included: open the repo in VS Code, choose
 
 ---
 
-## Roadmap
-
-- Docker Hub mirror alongside ghcr.io
-- Metadata for more PBaaS chains — [contributions especially welcome](CONTRIBUTING.md)
-- Testnet PBaaS support once chains exist there
-- A published Grafana dashboard ID
-
-History lives in [CHANGELOG.md](CHANGELOG.md).
-
----
-
 ## Community
 
 | | |
 | --- | --- |
 | Questions, ideas, show and tell | [Discussions](https://github.com/chainvue/verus-docker/discussions) |
 | Bugs and feature requests | [Issues](https://github.com/chainvue/verus-docker/issues) |
-| Adding a PBaaS chain | [Chain support template](https://github.com/chainvue/verus-docker/issues/new?template=chain_support.yml) — genuinely easy, genuinely welcome |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Adding a PBaaS chain | [Chain support template](https://github.com/chainvue/verus-docker/issues/new?template=chain_support.yml) — easy, and very welcome |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Security | [SECURITY.md](SECURITY.md) — report privately, never as an issue |
-| Conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| What is planned | [open issues](https://github.com/chainvue/verus-docker/issues) and [CHANGELOG.md](CHANGELOG.md) |
 | The wider Verus community | [verus.io/community](https://verus.io/community) |
 
 ## Non-goals
 
-- **No mining images.** Out of scope; plenty of miner projects exist already.
-- **No wallet GUI.** This is daemon and RPC infrastructure.
-- **No custody advice.** The project never asks for or handles your keys beyond
-  the standard `wallet.dat` in a volume you own.
+- **No mining images** — out of scope; plenty of miner projects exist already.
+- **No wallet GUI** — this is daemon and RPC infrastructure.
+- **No custody advice** — the project never asks for or handles your keys
+  beyond the standard `wallet.dat` in a volume you own.
 
 ---
 
@@ -346,12 +334,10 @@ without modifying it; protocol issues belong
 [upstream](https://github.com/VerusCoin/VerusCoin).
 
 Nothing here is financial advice. Running a node carries operational risk, and
-running one with a wallet carries financial risk. You are responsible for your
-own keys, your own backups and your own security posture — start with
+running one with a wallet carries financial risk — you are responsible for your
+own keys, backups and security posture. Start with
 [production.md](docs/production.md) and, if you stake,
-[staking.md](docs/staking.md).
-
-Provided as-is under the Apache-2.0 licence, with no warranty of any kind.
+[staking.md](docs/staking.md). Provided as-is, with no warranty of any kind.
 
 ## Licence
 

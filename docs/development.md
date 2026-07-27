@@ -31,7 +31,7 @@ docs/                   Everything deep; the README stays lean
 
 ## Prerequisites
 
-Docker with Compose v2 and buildx. That is genuinely all — every linter runs in
+Docker with Compose v2 and buildx. That is all of it — every linter runs in
 a container, pinned to a specific version, so there is nothing to install and
 nothing that drifts between your machine and CI.
 
@@ -71,7 +71,7 @@ make smoke
 
 A couple of minutes of assertions: the container runs unprivileged, the
 generated config is safe, credentials are 0600, the CLI wrapper needs no
-arguments, liveness and readiness genuinely disagree while syncing, SIGTERM
+arguments, liveness and readiness disagree while syncing as they should, SIGTERM
 produces a clean shutdown, and a restart neither reindexes nor re-downloads.
 
 **It deliberately does not sync a chain or download a bootstrap.** Neither is
@@ -87,7 +87,7 @@ PARAMS_DIR=/tmp/verus-params-cache make smoke
 ### The three cases entrypoint changes must handle
 
 Any change to `entrypoint.sh` should be checked against all three, because they
-exercise genuinely different code paths:
+exercise different code paths:
 
 1. **Fresh start** — empty volume. Config generated, params fetched.
 2. **Restart** — existing data. Config untouched, params reused, no reindex.

@@ -10,6 +10,11 @@
 #   1. every variable read at runtime appears in the README table
 #   2. every variable read at runtime appears in .env.example
 #
+# The exporter is checked separately against its own README, because it is a
+# separate image with its own configuration. It went unchecked for a while, and
+# SYNCED_MAX_TIP_AGE — which decides what the exporter calls "synced" — was
+# missing from its documentation the whole time.
+#
 # Usage: scripts/check-env-docs.sh
 
 set -euo pipefail
@@ -17,6 +22,11 @@ set -euo pipefail
 readonly README="${README:-README.md}"
 readonly ENV_EXAMPLE="${ENV_EXAMPLE:-.env.example}"
 readonly SOURCE_DIRS=("rootfs/usr/local/bin" "rootfs/usr/local/lib/verus")
+
+readonly EXPORTER_SOURCE="exporter/verus_exporter.py"
+readonly EXPORTER_README="exporter/README.md"
+# Set by the Dockerfile or by Python itself, not user-facing configuration.
+readonly EXPORTER_IGNORE='^(PYTHON[A-Z]*|PATH|HOME|LANG|LC_[A-Z]+)$'
 
 # Variables that are internal plumbing rather than user-facing configuration:
 # globals our own scripts set, constants, and values baked in by the Dockerfile.
@@ -76,6 +86,8 @@ main() {
 		for var in "${missing_env[@]}"; do note "$var"; done
 	fi
 
+	check_exporter
+
 	if ((errors > 0)); then
 		echo
 		echo "Add the missing variables to the configuration table, or extend the"
@@ -84,6 +96,35 @@ main() {
 	fi
 
 	echo "All environment variables are documented."
+}
+
+# The exporter reads its configuration through os.environ, so the names are
+# plain string literals rather than shell expansions.
+check_exporter() {
+	local var vars missing=()
+
+	[[ -f "$EXPORTER_SOURCE" && -f "$EXPORTER_README" ]] || return 0
+
+	mapfile -t vars < <(
+		grep -oE 'os\.environ(\.get)?\(\s*"[A-Z][A-Z0-9_]*"' "$EXPORTER_SOURCE" |
+			grep -oE '"[A-Z][A-Z0-9_]*"' | tr -d '"' |
+			sort -u | grep -vE "$EXPORTER_IGNORE" || true
+	)
+
+	((${#vars[@]} > 0)) || {
+		fail "no environment variables found in ${EXPORTER_SOURCE} — extraction is probably broken"
+		return 0
+	}
+
+	echo "Checking ${#vars[@]} exporter variables against ${EXPORTER_README}"
+	for var in "${vars[@]}"; do
+		grep -qE "\b${var}\b" "$EXPORTER_README" || missing+=("$var")
+	done
+
+	if ((${#missing[@]} > 0)); then
+		fail "not documented in ${EXPORTER_README}:"
+		for var in "${missing[@]}"; do note "$var"; done
+	fi
 }
 
 main "$@"

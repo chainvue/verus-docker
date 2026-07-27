@@ -11,5 +11,5 @@
     "signer": "Oink bootstrap releases@",
     "approximate_size_bytes": 5460680519
   },
-  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Bootstraps come from bootstrap.verus.expert, which publishes a sha256sum over valid TLS. Observed memory use in production is ~2 GB observed at the chain tip."
+  "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Bootstraps come from bootstrap.verus.expert, which publishes a sha256sum over valid TLS. Observed memory use in production is ~2 GB at the chain tip."
 }
