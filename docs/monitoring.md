@@ -148,15 +148,28 @@ remap on import.
 | `VerusHeightStuck` | No new blocks in 30m, sustained 15m (so ~45m) | warning |
 | `VerusNoPeers` | Zero peers, 10m | critical |
 | `VerusFewPeers` | Under 3 peers, 30m | warning |
-| `VerusNotSynced` | Not synced for 6h | warning |
+| `VerusNotSynced` | Was synced, behind for 6h | warning |
+| `VerusInitialSyncStalled` | Never synced and no block progress for 6h | warning |
 | `VerusWalletLocked` | Wallet present but locked, 15m | warning |
-| `VerusDiskFillingUp` | Under 10% free, 30m | critical |
+| `VerusDiskFillingUp`&nbsp;\* | Under 10% free, 30m | critical |
 
-Two deliberate design choices:
+\* **Requires node_exporter**, which this stack does not ship. The rule queries
+`node_filesystem_*`; without node_exporter scraped alongside the exporter it is
+inert and will never fire. Add node_exporter, or replace it with an equivalent
+rule against whatever already monitors your disks.
+
+Three deliberate design choices:
 
 `VerusNodeDown` includes `absent(verus_up)`. If the exporter itself dies, the
 metric disappears entirely and an expression testing only `== 0` stays silent
 forever. That failure mode is easy to miss and exactly the one you care about.
+
+The two sync alerts are split because one expression cannot tell "never caught
+up yet" from "was caught up and fell behind", and on mainnet the first is a
+normal state lasting days. `VerusNotSynced` requires the node to have reported
+synced within the last 7 days, so it only fires on a genuine regression;
+`VerusInitialSyncStalled` covers a first sync that has stopped moving. Both are
+unit-tested in `examples/prometheus/alerts_test.yml`.
 
 `VerusNotSynced` is set at **6 hours**, not minutes. Initial sync legitimately
 takes days on mainnet; a tight threshold would fire continuously on every new
@@ -166,7 +179,8 @@ node and be muted, which is worse than no alert. This one is for a node that
 ### What to actually page on
 
 - `VerusNodeDown` and `VerusNoPeers` — genuine outages
-- `VerusDiskFillingUp` — chain data only grows, and a full disk corrupts LevelDB
+- `VerusDiskFillingUp` — chain data only grows, and a full disk corrupts
+  LevelDB. Only useful once node_exporter is actually in the stack (see above)
 - `VerusWalletLocked` — only on staking nodes, but there it means you are
   earning nothing while looking perfectly healthy
 

@@ -32,7 +32,7 @@ one of the most useful. It is a single JSON file:
 
 Follow [`chains/schema.json`](chains/schema.json). Two things we ask:
 
-- **Include a `bootstrap` block only if it is genuinely usable** — the URL needs
+- **Include a `bootstrap` block only if it actually works** — the URL needs
   a working `<url>.sha256sum` sidecar and valid TLS. Record who publishes it in
   `signer`. Readers deserve to know whose snapshot they would be trusting, and
   not every bootstrap comes from the Verus Coin Foundation.

@@ -147,6 +147,36 @@ Two things that surprise people:
 
 Adding swap is a legitimate mitigation. Slow beats killed.
 
+## Disk
+
+### `No space left on device`, or corruption right after the disk filled
+
+```bash
+docker exec verus df -h /home/verus/.komodo
+```
+
+Running out of space mid-write is one of the two reliable ways to corrupt the
+chain database (a hard kill during a flush is the other). The daemon may keep
+running for a while after the disk fills and only fail later, so a corruption
+error that appears "out of nowhere" is worth correlating against disk history.
+
+Recovery is the same as for any corruption, and the order matters:
+
+```bash
+# 1. Back up the wallet FIRST — it is the only thing that cannot be re-fetched.
+docker cp verus:/home/verus/.komodo/VRSC/wallet.dat ./wallet-backup.dat
+
+# 2. Give it room. Growing the volume is better than deleting chain data.
+# 3. Then re-seed the chain: see "Corruption: block checksum mismatch" below.
+```
+
+Budget more than you expect. `addressindex` and `spentindex` are forced on by
+the daemon and cannot be disabled, so a mainnet node is substantially larger
+than the raw block data suggests — see [production.md](production.md#disk). If
+you use a bootstrap, the archive and its extracted contents briefly coexist, so
+plan for roughly 2.5× the archive size during seeding. The entrypoint checks
+for this before downloading and refuses to start rather than filling the disk.
+
 ## Database corruption
 
 ### `Corruption: block checksum mismatch` or a forced reindex
@@ -172,11 +202,13 @@ Then fix the cause, or it recurs:
 
 ### Every restart triggers a reindex
 
-Check you are not passing `-bootstrap` via `EXTRA_ARGS`. The daemon's own
-`-bootstrap` flag is **unconditional and destructive on every start** — it
-deletes `blocks`, `chainstate`, `notarisations`, `peers.dat` and `komodostate`,
-and forces `-zappwallettxes=2`. This image never passes it and implements its
-own verified, first-run-only fetcher instead.
+If you were passing `-bootstrap` through `EXTRA_ARGS`, the container now
+refuses to start and says so — that flag is **unconditional and destructive on
+every start**, deleting `blocks`, `chainstate`, `notarisations`, `peers.dat`
+and `komodostate` and forcing `-zappwallettxes=2`, which discards wallet
+transaction metadata. Use `USE_BOOTSTRAP=true` instead: it only runs when there
+is no chain data yet, verifies the published SHA-256 before extracting, and
+never touches `wallet.dat`.
 
 Also note that changing `-idindex` or `-insightexplorer` on an existing chain
 forces a reindex by design.
@@ -196,7 +228,8 @@ answers **HTTP 403 to a default curl User-Agent**; this image sends a browser
 User-Agent and validates the response is really a checksum line rather than
 comparing against an HTML error page.
 
-If you set a custom `BOOTSTRAP_URL`, confirm a `<url>.sha256sum` exists next to
+If you set a custom `BOOTSTRAP_URL`, confirm a `<url>.sha256sum` or
+`<url>.verusid` sidecar exists next to
 the archive.
 
 ### `TLS certificate verification failed`

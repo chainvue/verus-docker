@@ -85,7 +85,7 @@ Two different questions, with two different answers:
 
 ```bash
 docker compose -f examples/compose.testnet.yml exec verus healthcheck.sh
-# syncing: block 716/7360 (0.06%), 1 peers      -> exit 0
+# syncing: block 716/7360 (9.73%), 1 peers, tip 6y old   -> exit 0
 ```
 
 **A node that is still syncing is healthy.** It is answering RPC and doing

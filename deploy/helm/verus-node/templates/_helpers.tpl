@@ -78,6 +78,22 @@ root and testnet chains get <datadir>/rpc-credentials with the datadir cased
 exactly as verusd expects, while a PBaaS chain has no predictable datadir and
 so gets <home>/<slug>.rpc-credentials instead.
 */}}
+{{/*
+The credentials file's path relative to the data volume root, for use as a
+subPath. Kept in step with verus-node.credentialsPath below, which is the same
+thing prefixed with the mount point.
+*/}}
+{{- define "verus-node.credentialsSubPath" -}}
+{{- $c := upper .Values.chain -}}
+{{- if eq $c "VRSC" -}}
+VRSC/rpc-credentials
+{{- else if eq $c "VRSCTEST" -}}
+vrsctest/rpc-credentials
+{{- else -}}
+{{ lower .Values.chain }}.rpc-credentials
+{{- end -}}
+{{- end -}}
+
 {{- define "verus-node.credentialsPath" -}}
 {{- $home := include "verus-node.dataMountPath" . -}}
 {{- $c := upper .Values.chain -}}

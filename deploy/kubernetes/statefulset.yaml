@@ -25,6 +25,11 @@ spec:
       # target — raise it for a synced mainnet node.
       terminationGracePeriodSeconds: 120
 
+      # The node never talks to the Kubernetes API, so it has no use for a
+      # mounted token — and a token it does not need is a credential an
+      # attacker who reaches the container does not get.
+      automountServiceAccountToken: false
+
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -33,6 +38,8 @@ spec:
         # container never needs root to fix ownership.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: verus

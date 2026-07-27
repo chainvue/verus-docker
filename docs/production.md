@@ -74,7 +74,7 @@ A bootstrap is a snapshot of the chain, published as a tarball.
 | | Bootstrap | From genesis |
 | --- | --- | --- |
 | Mainnet | ~22 GB download, then minutes of catch-up | Days |
-| Testnet | ~6.5 GB, regenerated weekly | Hours |
+| Testnet | ~6.6 GB, regenerated weekly | Hours |
 | PBaaS | 5-16 GB depending on the chain, weekly | Hours |
 | Trust | You trust whoever published the snapshot | Only the network |
 
@@ -296,10 +296,15 @@ Ready-made rules are in
 | Peers = 0 for 10m | Isolated; cannot learn about blocks |
 | Peers < 3 for 30m | Peer starvation; sync will crawl |
 | Not synced for 6h | It *was* synced and fell behind |
+| Initial sync stopped progressing | A first sync that has wedged, as opposed to one that is merely slow |
 | Wallet locked (staking nodes) | A locked wallet earns nothing |
 | Disk > 90% full | Chain data grows continuously; a full disk corrupts LevelDB |
 
-Disk is the one people forget. Chain data only ever grows.
+Disk is the one people forget. Chain data only ever grows — **and the shipped
+disk rule needs `node_exporter`, which the monitoring stack does not include.**
+It queries `node_filesystem_*`, so until you scrape node_exporter alongside it,
+that row is aspirational rather than an alert. An alert you believe in but which
+cannot fire is worse than no alert at all.
 
 ## Common failure modes
 

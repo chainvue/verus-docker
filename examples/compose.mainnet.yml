@@ -25,6 +25,18 @@ services:
     # this value was too low.
     stop_grace_period: 120s
 
+    # Matches what the Kubernetes manifests already do. The daemon needs no
+    # privileges beyond writing its own data directory, and the image still
+    # carries Debian's setuid binaries (su, mount, passwd), so dropping them
+    # costs nothing here.
+    #
+    # If you start the container as root to have PUID/PGID remapped, comment
+    # these two out — that path needs CHOWN/SETUID/SETGID to do its job.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
     environment:
       CHAIN: VRSC
 

@@ -31,13 +31,30 @@ Alongside a node started by `verus-docker`, the simplest wiring reads the
 credentials the entrypoint generated:
 
 ```bash
+# Both the network and the volume are named after the compose project, which
+# defaults to the directory name. Check yours first:
+#   docker network ls | grep verus
+#   docker volume ls  | grep verus
 docker run -d --name verus-exporter \
+  --network verus-testnet_default \
   -e VERUS_RPC_HOST=verus \
   -e VERUS_RPC_PORT=18843 \
-  -e VERUS_CREDENTIALS_FILE=/data/vrsctest/rpc-credentials \
-  -v verus-data-vrsctest:/data:ro \
+  -e VERUS_CREDENTIALS_FILE=/creds \
+  -v verus-testnet_verus-data-vrsctest:/data:ro \
   ghcr.io/chainvue/verus-exporter:latest
 ```
+
+Two things people get wrong here, both silent:
+
+- **Without `--network`**, `VERUS_RPC_HOST=verus` does not resolve — the
+  container lands on the default bridge, where the compose service name means
+  nothing.
+- **Volume names are project-prefixed.** `-v verus-data-vrsctest:...` does not
+  attach the node's volume; it creates a new empty one, and the exporter exits
+  reporting no credentials.
+
+Passing `VERUS_RPC_USER` and `VERUS_RPC_PASSWORD` directly avoids the volume
+entirely, which is the better option if you already manage the credentials.
 
 Or use the monitoring overlay, which wires exporter, Prometheus and Grafana
 together:
@@ -61,6 +78,7 @@ docker compose -f examples/compose.testnet.yml -f examples/compose.monitoring.ym
 | `EXPORTER_CACHE_SECONDS` | `5` | Reuse a scrape for this long so multiple Prometheus servers cost one RPC round. |
 | `EXPORTER_EXPOSE_BALANCES` | `false` | Include wallet balances. Off by default — a metrics endpoint is usually less protected than the RPC behind it. |
 | `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind the tip that still count as synced. |
+| `SYNCED_MAX_TIP_AGE` | `1800` | How old the chain tip may be, in seconds, and still count as synced. Must match the node's value or `verus_sync_complete` will disagree with the readiness probe. |
 | `DEBUG` | `false` | Log every HTTP request. |
 
 ## Endpoints

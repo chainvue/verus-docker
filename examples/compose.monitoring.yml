@@ -52,8 +52,20 @@ services:
       # protected than the RPC behind it.
       # EXPORTER_EXPOSE_BALANCES: "true"
     volumes:
-      # Read-only: the exporter needs the credentials file and nothing else.
-      - ${VERUS_DATA_VOLUME:-verus-data-vrsctest}:/data:ro
+      # The credentials file and nothing else.
+      #
+      # This used to mount the whole data volume read-only, which put wallet.dat
+      # inside a second container for no reason — the exporter needs one file.
+      # `subpath` needs Docker Compose v2.26 or newer; on an older Compose,
+      # replace this block with the whole-volume form and accept the wider
+      # exposure, or pass VERUS_RPC_USER/VERUS_RPC_PASSWORD explicitly instead:
+      #   - ${VERUS_DATA_VOLUME:-verus-data-vrsctest}:/data:ro
+      - type: volume
+        source: ${VERUS_DATA_VOLUME:-verus-data-vrsctest}
+        target: ${VERUS_CREDS:-/data/vrsctest/rpc-credentials}
+        read_only: true
+        volume:
+          subpath: ${VERUS_CREDS_SUBPATH:-vrsctest/rpc-credentials}
     expose:
       - "9838"
     # Not published to the host: Prometheus reaches it over the compose network.

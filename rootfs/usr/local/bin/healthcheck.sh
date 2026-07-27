@@ -150,10 +150,19 @@ main() {
 	tip_age=$(($(date -u +%s) - tiptime))
 	((tip_age < 0)) && tip_age=0
 
-	# Highest height any peer reported. Best effort: an empty result simply
-	# means we fall back to the tip-age test alone.
+	# The MEDIAN height our peers reported, not the maximum.
+	#
+	# startingheight comes straight out of a peer's `version` message, so it is
+	# whatever that peer chose to claim. Taking the max let a single inbound
+	# connection advertising an absurd height hold `behind` above the tolerance
+	# forever — readiness would never pass, and Kubernetes would pull a
+	# perfectly healthy node out of its Service. Every example publishes the P2P
+	# port, as it should for peer health, so that is trivially reachable.
+	#
+	# A median needs more than half the peers lying to move, which is a much
+	# harder position to reach than opening one connection.
 	network_height="$(rpc_call "$rpc_url" "$RPC_USER" "$RPC_PASSWORD" getpeerinfo 2>/dev/null |
-		jq -r '[.[]?.startingheight // 0] | max // 0' 2>/dev/null || echo 0)"
+		jq -r '[.[]?.startingheight // 0] | sort | if length == 0 then 0 else .[(length / 2) | floor] end' 2>/dev/null || echo 0)"
 	[[ "$network_height" =~ ^[0-9]+$ ]] || network_height=0
 
 	behind=$((network_height - blocks))

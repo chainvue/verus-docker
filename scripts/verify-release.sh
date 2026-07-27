@@ -34,18 +34,29 @@ die() {
 	exit 1
 }
 
-# rpc <method> <params-json> — prints the result member, or nothing on failure.
+# rpc <method> [param...] — prints the result member, or nothing on failure.
+#
+# The request body is built with jq rather than string interpolation. Every
+# parameter here originates in an archive we are in the middle of deciding
+# whether to trust, and VERIFY_RPC_URL is explicitly meant to be pointed at the
+# maintainer's own wallet-bearing node — so a signature field containing
+# `"],"method":"…` must not be able to become a different RPC call.
 rpc() {
-	local method="$1" params="$2" response
+	local method="$1" body response
+	shift
+
+	body="$(jq -n --arg m "$method" '$ARGS.positional as $p |
+		{jsonrpc: "1.0", id: "verify", method: $m, params: $p}' --args "$@")" || return 1
+
 	response="$(curl --fail --silent --show-error --max-time 45 \
 		--header 'Content-Type: application/json' \
-		--data "{\"jsonrpc\":\"1.0\",\"id\":\"verify\",\"method\":\"${method}\",\"params\":${params}}" \
+		--data "$body" \
 		"$VERIFY_RPC_URL" 2>/dev/null)" || return 1
 	jq -e -r '.result' <<<"$response" 2>/dev/null
 }
 
 main() {
-	local tag workdir arch asset inner sig hash signer result
+	local tag workdir arch asset inner sig hash signer result outer_sha expected_pin
 	local verified=0 rejected=0 unreachable=0
 
 	command -v jq >/dev/null 2>&1 || die "jq is required"
@@ -63,7 +74,7 @@ main() {
 
 	# A node that cannot resolve the identity cannot verify anything, so say so
 	# rather than reporting a misleading failure.
-	if ! rpc getidentity "[\"${EXPECTED_SIGNER}\"]" >/dev/null 2>&1; then
+	if ! rpc getidentity "$EXPECTED_SIGNER" >/dev/null 2>&1; then
 		note "could not resolve '${EXPECTED_SIGNER}' — the node is unreachable, not synced,"
 		note "or does not serve getidentity. Nothing has been proven either way."
 		return 2
@@ -103,11 +114,35 @@ main() {
 			continue
 		fi
 
-		result="$(rpc verifyhash "[\"${signer}\",\"${sig}\",\"${hash}\"]" || echo error)"
+		result="$(rpc verifyhash "$signer" "$sig" "$hash" || echo error)"
 		case "$result" in
 		true)
+			outer_sha="$(sha256sum "${workdir}/${asset}" | cut -d' ' -f1)"
+
+			# Bind the signature we just confirmed to the bytes the build will
+			# actually use. This script downloads the assets independently of
+			# whatever pinned them, so without this comparison a valid signature
+			# on one download says nothing about the checksum recorded from
+			# another — the exact tie SECURITY.md claims exists.
+			case "$arch" in
+			x86_64) expected_pin="${EXPECT_SHA256_AMD64:-}" ;;
+			arm64) expected_pin="${EXPECT_SHA256_ARM64:-}" ;;
+			*) expected_pin="" ;;
+			esac
+			if [[ -n "$expected_pin" && "$expected_pin" != "$outer_sha" ]]; then
+				note "  ${arch}: REJECTED — signature is valid, but for different bytes"
+				note "    pinned:   ${expected_pin}"
+				note "    verified: ${outer_sha}"
+				note "    The archive changed between being pinned and being checked."
+				rejected=$((rejected + 1))
+				continue
+			fi
+
 			note "  ${arch}: VERIFIED — signed by ${signer}"
-			printf '%s  %s\n' "$(sha256sum "${workdir}/${asset}" | cut -d' ' -f1)" "$asset"
+			if [[ -n "$expected_pin" ]]; then
+				note "    and matches the checksum pinned in the Dockerfile"
+			fi
+			printf '%s  %s\n' "$outer_sha" "$asset"
 			verified=$((verified + 1))
 			;;
 		false)

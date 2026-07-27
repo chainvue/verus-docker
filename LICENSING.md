@@ -77,16 +77,16 @@ image.
 
 ```bash
 # Confirm the image came from this repository's release workflow
-cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r5 \
+cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
   --certificate-identity-regexp 'https://github.com/chainvue/verus-docker/.github/workflows/release.yml@.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 # Read the SBOM attached to the image
-cosign download attestation ghcr.io/chainvue/verus-docker:v1.2.17-2-r5 \
+cosign download attestation ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
   | jq -r '.payload' | base64 -d | jq '.predicate'
 
 # Or take it from the GitHub release
-gh release download v1.2.17-2-r5 --repo chainvue/verus-docker --pattern sbom.spdx.json
+gh release download v1.2.17-2-r1 --repo chainvue/verus-docker --pattern sbom.spdx.json
 jq -r '.packages[] | "\(.name)\t\(.licenseConcluded // .licenseDeclared // "NOASSERTION")"' sbom.spdx.json
 ```
 

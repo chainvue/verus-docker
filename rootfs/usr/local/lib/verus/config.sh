@@ -204,6 +204,51 @@ write_config() {
 	log_info "wrote a new configuration file: ${conf}"
 }
 
+# conf_flag_enabled <conf> <name> — true when the config turns <name> on.
+conf_flag_enabled() {
+	grep -qE "^[[:space:]]*${2}[[:space:]]*=[[:space:]]*1[[:space:]]*$" "$1" 2>/dev/null
+}
+
+# Say so out loud when an env var the operator set is being ignored because the
+# config already exists.
+#
+# The trap: run an RPC node for a month, decide to stake, set ENABLE_STAKING and
+# restart. The config was written before that variable existed, so nothing
+# changes — and the startup banner used to print "staking: enabled" anyway,
+# because it read the env var rather than the file the daemon actually uses.
+warn_ignored_env_vars() {
+	local conf="$1"
+	local -a ignored=()
+
+	if is_true "${ENABLE_STAKING:-false}" && ! conf_flag_enabled "$conf" mint; then
+		ignored+=("ENABLE_STAKING=true, but the config has no 'mint=1'."
+			"  This node will NOT stake. Add 'mint=1' to the config and restart.")
+	fi
+	if is_true "${DISABLE_WALLET:-false}" && ! conf_flag_enabled "$conf" disablewallet; then
+		ignored+=("DISABLE_WALLET=true, but the config has no 'disablewallet=1'."
+			"  The wallet stays enabled.")
+	fi
+	if is_true "${IDINDEX:-false}" && ! conf_flag_enabled "$conf" idindex; then
+		ignored+=("IDINDEX=true, but the config has no 'idindex=1'."
+			"  Enabling it later also requires a full -reindex.")
+	fi
+	if is_true "${INSIGHT_EXPLORER:-false}" && ! conf_flag_enabled "$conf" insightexplorer; then
+		ignored+=("INSIGHT_EXPLORER=true, but the config has no 'insightexplorer=1'."
+			"  Enabling it later also requires a full -reindex.")
+	fi
+
+	((${#ignored[@]} > 0)) || return 0
+
+	log_banner_warning \
+		"Some settings you asked for are NOT in effect." \
+		"" \
+		"${ignored[@]}" \
+		"" \
+		"Env vars only build the config the first time it is written. After" \
+		"that the file is the source of truth, because overwriting it would" \
+		"destroy hand-tuned production settings."
+}
+
 # Ensure a config exists for chains that have a predictable config path,
 # honouring the "never overwrite" rule.
 ensure_config() {
@@ -211,8 +256,13 @@ ensure_config() {
 
 	if [[ -f "$conf" ]]; then
 		log_info "existing configuration found at ${conf}"
-		log_info "  -> RPC_*, TXINDEX, IDINDEX and related env vars are IGNORED this run."
-		log_info "  -> Delete the file (or edit it) if you want different settings."
+		log_info "  -> These env vars only apply when the config is first created,"
+		log_info "     and are IGNORED this run:"
+		log_info "       RPC_USER, RPC_PASSWORD, RPC_PORT, RPC_ALLOW_IP, P2P_PORT,"
+		log_info "       TXINDEX, IDINDEX, TIMESTAMPINDEX, INSIGHT_EXPLORER,"
+		log_info "       DISABLE_WALLET, ENABLE_STAKING, MAX_CONNECTIONS"
+		log_info "  -> Edit ${conf} directly to change any of them."
+		warn_ignored_env_vars "$conf"
 		load_credentials_from_conf "$conf"
 		RPC_PORT="${RPC_PORT:-$DEFAULT_RPC_PORT}"
 		# An operator's hand-written config may legitimately carry no

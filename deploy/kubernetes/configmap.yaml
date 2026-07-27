@@ -10,6 +10,14 @@ data:
 
   # A bootstrap is a large verified download that must finish before the daemon
   # starts. Leave it off unless you are seeding a fresh volume deliberately.
+  #
+  # If you set this to "true", raise startupProbe.failureThreshold in
+  # statefulset.yaml first. The RPC stays down for the whole download and
+  # extraction, and the default there is 30 minutes (15s x 120) — a ~22 GB
+  # mainnet bootstrap will not finish in that window, so the kubelet will
+  # restart the pod partway through. Downloads resume rather than restarting,
+  # so this costs extra restarts rather than never completing, but the pod will
+  # flap until the budget is realistic. See docs/kubernetes.md for the formula.
   USE_BOOTSTRAP: "false"
 
   TXINDEX: "1"

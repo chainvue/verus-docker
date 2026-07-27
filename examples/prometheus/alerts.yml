@@ -46,15 +46,38 @@ groups:
           description: "Fewer than 3 peers. Publish the P2P port to attract inbound connections."
 
       - alert: VerusNotSynced
-        # Deliberately long: initial sync legitimately takes days on mainnet.
-        # This is for a node that WAS synced and fell behind.
-        expr: verus_sync_complete == 0
+        # For a node that WAS synced and fell behind — not one that has never
+        # caught up yet.
+        #
+        # `verus_sync_complete == 0` alone cannot tell those apart, so on
+        # mainnet, where initial sync legitimately takes days, it fires on
+        # every brand new node and trains people to ignore it. The second
+        # clause requires the node to have reported synced at some point in
+        # the last week, which is only true of a node that has regressed.
+        expr: |
+          verus_sync_complete == 0
+            and on (chain) (max_over_time(verus_sync_complete[7d]) == 1)
         for: 6h
         labels:
           severity: warning
         annotations:
-          summary: "Verus {{ $labels.chain }} is not synced"
-          description: "Behind the tip for 6 hours ({{ $labels.chain }})."
+          summary: "Verus {{ $labels.chain }} has fallen behind"
+          description: "Was synced within the last 7 days, but has been behind the tip for 6 hours."
+
+      # The counterpart for a node that has never synced. Long enough not to
+      # fire during a normal mainnet initial sync, short enough to catch one
+      # that is genuinely stuck.
+      - alert: VerusInitialSyncStalled
+        expr: |
+          verus_sync_complete == 0
+            and on (chain) (max_over_time(verus_sync_complete[7d]) == 0)
+            and on (chain) (increase(verus_blocks[6h]) < 1)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Verus {{ $labels.chain }} initial sync is not progressing"
+          description: "Never reached the tip and gained no blocks in 6 hours. Check peers and disk space."
 
       - alert: VerusWalletLocked
         # Only meaningful on a staking node: a locked wallet does not stake.
