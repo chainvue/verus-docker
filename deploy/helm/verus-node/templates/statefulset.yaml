@@ -40,6 +40,8 @@ spec:
       # chain state and forces a reindex measured in hours.
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
 
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
 
@@ -140,7 +142,7 @@ spec:
 
         {{- if .Values.monitoring.enabled }}
         - name: exporter
-          image: "{{ .Values.monitoring.image.repository }}:{{ .Values.monitoring.image.tag }}"
+          image: "{{ .Values.monitoring.image.repository }}:{{ .Values.monitoring.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.monitoring.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
@@ -183,10 +185,20 @@ spec:
             periodSeconds: 30
           resources:
             {{- toYaml .Values.monitoring.resources | nindent 12 }}
+          {{- if not (or .Values.rpcAuth.existingSecret .Values.rpcAuth.username) }}
+          # Only when credentials have to be read out of the volume, and then
+          # only that one file. Mounting the whole data directory would put
+          # wallet.dat inside a second container — a separate image with its
+          # own build and dependency surface — for no reason: the exporter
+          # needs one credentials file, not the chain.
+          #
+          # Supply rpcAuth (or an existingSecret) and there is no mount at all.
           volumeMounts:
             - name: data
-              mountPath: {{ include "verus-node.dataMountPath" . }}
+              mountPath: {{ include "verus-node.credentialsPath" . }}
+              subPath: {{ include "verus-node.credentialsSubPath" . }}
               readOnly: true
+          {{- end }}
         {{- end }}
 
       {{- with .Values.nodeSelector }}

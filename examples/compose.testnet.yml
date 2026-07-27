@@ -22,6 +22,18 @@ services:
     # state and forces a multi-hour reindex on the next start. Never lower this.
     stop_grace_period: 120s
 
+    # Matches what the Kubernetes manifests already do. The daemon needs no
+    # privileges beyond writing its own data directory, and the image still
+    # carries Debian's setuid binaries (su, mount, passwd), so dropping them
+    # costs nothing here.
+    #
+    # If you start the container as root to have PUID/PGID remapped, comment
+    # these two out — that path needs CHOWN/SETUID/SETGID to do its job.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
     environment:
       CHAIN: VRSCTEST
 
@@ -50,6 +62,22 @@ services:
     volumes:
       - verus-data-vrsctest:/home/verus/.komodo
       - verus-params:/home/verus/.zcash-params
+
+    # Testnet is far lighter than mainnet, but "lighter" is not "unbounded" —
+    # an uncapped node on a laptop or a shared dev host will happily take
+    # whatever is free. Raise the limit rather than removing it.
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+
+    # verusd opens a lot of files: LevelDB plus one per peer.
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
 
     # The image ships a HEALTHCHECK already (liveness: is the daemon
     # responding?). It is restated here so the start period is visible.

@@ -45,10 +45,21 @@ fullnameOverride: ""
 # the daemon starts. Off by default: it is a deliberate seeding operation, not
 # something you want happening on an unexpected pod reschedule.
 #
-# If you turn this on, RAISE probes.startup.failureThreshold. Mainnet is ~22 GB
-# and the RPC stays down throughout; with the default 30-minute startup budget
-# the kubelet kills the pod mid-download and the next attempt starts from zero,
-# which is an expensive crash loop rather than a slow success.
+# If you turn this on, RAISE probes.startup.failureThreshold. The RPC stays
+# down for the whole download-plus-extraction, and the default budget is 30
+# minutes (15s x 120), which a ~22 GB mainnet bootstrap will not meet.
+#
+# Pick the threshold from your actual link speed:
+#
+#   failureThreshold = (archive_GB * 1000 / link_MBps + extract_minutes * 60)
+#                      / periodSeconds
+#
+#   e.g. 22 GB at 50 Mbps (~6 MB/s) = ~3700s download + ~900s extraction
+#        = 4600s / 15s per period ~= 310, so round up to 400.
+#
+# Getting it wrong is no longer fatal: an interrupted download resumes from
+# where it stopped rather than restarting, so a too-low threshold costs extra
+# restarts instead of looping forever. It is still worth setting properly.
 useBootstrap: false
 
 # Full transaction index. Costs significant disk. Must be decided before the
@@ -191,7 +202,11 @@ monitoring:
   enabled: false
   image:
     repository: ghcr.io/chainvue/verus-exporter
-    tag: latest
+    # Empty means "v<chart appVersion>", matching how the node image is
+    # resolved. The exporter is released in lockstep with the node, so a
+    # given chart version pins a coherent pair rather than whatever `latest`
+    # happens to be that day.
+    tag: ""
     pullPolicy: IfNotPresent
   port: 9838
   # Balances are omitted by default: the metrics endpoint is usually less
@@ -231,11 +246,17 @@ podSecurityContext:
   runAsGroup: 1000
   fsGroup: 1000
   fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop: [ALL]
+
+# The node never calls the Kubernetes API, so it has no use for a mounted
+# ServiceAccount token.
+automountServiceAccountToken: false
 
 serviceAccount:
   create: true

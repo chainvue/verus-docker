@@ -125,6 +125,40 @@ time the RPC does not answer. Without a startup probe, liveness would kill the
 pod before it ever finished starting — a restart loop that looks like a broken
 image. Default allowance is 15s × 120 = 30 minutes.
 
+### Sizing the startup budget when using a bootstrap
+
+30 minutes is generous for a normal cold start and **not enough for a
+bootstrap**. The RPC stays down for the entire download *and* extraction, so
+the startup probe has to cover both:
+
+```
+failureThreshold = (archive_GB × 1000 / link_MBps + extract_seconds) / periodSeconds
+```
+
+Worked example — mainnet (~22 GB) on a 50 Mbps link (~6 MB/s):
+
+```
+download   22000 MB / 6 MB/s   ≈ 3700 s
+extraction                     ≈  900 s
+total                          ≈ 4600 s
+4600 / 15 s per period         ≈ 307   →  set failureThreshold: 400
+```
+
+| Chain | Archive | Suggested `failureThreshold` at 50 Mbps |
+| --- | --- | --- |
+| VRSCTEST | ~6.6 GB | 150 |
+| VRSC | ~22 GB | 400 |
+| PBaaS (CHIPS/VARRR/VDEX) | 5–10 GB | 150 |
+
+Set it generously. An oversized budget costs nothing — the probe stops as soon
+as the RPC answers — while an undersized one makes the pod restart partway
+through.
+
+Getting it wrong is no longer fatal: an interrupted download resumes from where
+it stopped and a verified archive is reused rather than re-fetched, so a low
+threshold costs extra restarts instead of never finishing. Earlier releases
+restarted from zero every time, which never converged.
+
 **Liveness — "is it alive?"** A node doing its initial sync answers RPC and is
 perfectly healthy. **Never make liveness depend on sync state.** If you do, a
 node that legitimately needs three days to sync gets killed every few minutes
