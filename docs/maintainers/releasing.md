@@ -177,18 +177,27 @@ release notes reference nothing that ships in the release — verified against
 `v1.2.17-2`, where the advertised value matched neither the outer `.tgz`, the
 inner `.tar.gz`, nor any extracted file. **Do not use them.**
 
-What does exist is a VerusID signature inside each archive. Checking it needs a
-synced node, which is why it cannot happen during a container build:
+What does exist is a VerusID signature inside each archive, and it can be
+checked against any Verus node:
 
 ```bash
-tar -xzf Verus-CLI-Linux-v1.2.17-2-x86_64.tgz
-cat Verus-CLI-Linux-v1.2.17-2-x86_64.tar.gz.signature.txt
-# {"hash": "...", "signature": "...", "signer": "Verus Coin Foundation Releases@"}
-
-verus verifyfile "Verus Coin Foundation Releases@" \
-  "<signature from that file>" \
-  "$PWD/Verus-CLI-Linux-v1.2.17-2-x86_64.tar.gz"
+make verify-release                    # or: scripts/verify-release.sh v1.2.18
 ```
+
+```
+>>   x86_64: VERIFIED — signed by Verus Coin Foundation Releases@
+4ff43ee52599bff9bf19eed99daa80c5a4b609e13df7cad1796a81393e7dee42  ...x86_64.tgz
+>>   arm64:  VERIFIED — signed by Verus Coin Foundation Releases@
+749f4c9c8bb57fc3eef116ff876a890cd4fc2cdb8fd8f549df4ffcc646ab2a90  ...arm64.tgz
+```
+
+The checksums it prints should match the Dockerfile's `ARG VERUS_SHA256_*`
+exactly. Exit 0 means verified, 1 means a signature was **rejected** — do not
+ship it — and 2 means no node could be reached, so nothing was proven.
+
+`upstream-watch` runs this automatically on every bump and records the result in
+the pull request, so the checklist item is now a machine check rather than a
+hope.
 
 The root of trust in this repository is therefore the reviewed checksum pinned
 in the Dockerfile. The build cross-checks the embedded signature file as

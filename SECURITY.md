@@ -109,7 +109,7 @@ The SBOM is also attached to each GitHub release.
 
 | Layer | Approach |
 | --- | --- |
-| Verus binaries | Reviewed SHA-256 pinned per architecture; the build fails hard on mismatch |
+| Verus binaries | SHA-256 pinned per architecture, and the VerusID signature verified on-chain at bump time; the build fails hard on mismatch |
 | Zcash parameters | SHA-256 verified against the values pinned in the daemon's own source |
 | Bootstraps | Published SHA-256 verified before extraction; abort and delete on mismatch |
 | Base image | Rebuilt weekly when the upstream digest moves |
@@ -123,17 +123,30 @@ SHA-256 values embedded in the release notes reference nothing that ships in the
 release — verified against `v1.2.17-2`, where the advertised value matched
 neither the outer `.tgz`, the inner `.tar.gz`, nor any extracted file.
 
-Each archive does contain a VerusID signature file, but checking that signature
-requires a synced Verus node, which is impossible during a container build.
+Each archive does contain a VerusID signature file. Checking that signature
+needs a Verus node to resolve the signing identity on chain — impossible inside
+a container build, but perfectly possible from a script with network access.
 
-So the root of trust here is **a checksum pinned in this repository and reviewed
-by a human** when the version is bumped. The build additionally cross-checks the
-embedded signature file against the inner tarball and its expected signer, but
-that is defence in depth rather than an independent root: an attacker who
-replaced the archive would control both.
+So verification happens where it can, at version-bump time:
 
-We would rather state this plainly than imply a stronger guarantee than exists.
-If upstream begins publishing signed checksums, we will use them.
+```bash
+scripts/verify-release.sh          # the version pinned in the Dockerfile
+```
+
+It downloads both architectures, confirms the signature file's hash matches the
+tarball, and asks a Verus node whether `Verus Coin Foundation Releases@` really
+signed it. `upstream-watch` runs this on every bump and records the answer in
+the pull request; a rejected signature fails the job outright.
+
+By default it asks the public gateway the Verus wallet uses. Set
+`VERIFY_RPC_URL` to your own node if you would rather not trust it — the answer
+should be identical, and a disagreement is itself worth knowing about.
+
+The root of trust for the **image build** is still the pinned checksum, because
+the build has no network identity to consult. What changed is that the checksum
+is no longer merely eyeballed: it is now tied, at bump time, to a signature the
+chain confirms. An attacker who replaced the archive would have to also produce
+a valid Foundation signature.
 
 ## Wallet safety
 

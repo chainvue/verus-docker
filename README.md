@@ -146,6 +146,13 @@ cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
+Verify that the daemon inside an image is a genuinely signed Foundation
+release, using any Verus node:
+
+```bash
+make verify-release
+```
+
 Release process and automation: [`docs/maintainers/releasing.md`](docs/maintainers/releasing.md).
 
 ---

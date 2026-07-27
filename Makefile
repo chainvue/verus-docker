@@ -37,12 +37,14 @@ SHELL_SCRIPTS := rootfs/usr/local/bin/entrypoint.sh \
                  scripts/next-version.sh \
                  scripts/check-env-docs.sh \
                  scripts/bump-upstream.sh \
+                 scripts/verify-release.sh \
                  examples/rpc/curl.sh \
                  .devcontainer/post-create.sh
 
 .DEFAULT_GOAL := help
 .PHONY: help build build-multiarch build-exporter lint shellcheck shfmt shfmt-fix \
         hadolint actionlint env-docs json-lint helm-lint k8s-validate py-check smoke \
+        verify-release \
         up-testnet up-published up-monitoring cli logs shell down down-monitoring clean version
 
 help: ## Show this help
@@ -114,6 +116,9 @@ k8s-validate: ## Validate the plain manifests and rendered chart against Kuberne
 smoke: build ## Run the full smoke test against a freshly built image
 	IMAGE=$(IMAGE):$(TAG) PARAMS_DIR=$${PARAMS_DIR:-/tmp/verus-params-cache} \
 		bash scripts/smoke-test.sh
+
+verify-release: ## Cryptographically verify the pinned upstream release on-chain
+	@bash scripts/verify-release.sh
 
 version: ## Show the next release tag
 	@echo "upstream pinned : $$(scripts/next-version.sh --upstream)"

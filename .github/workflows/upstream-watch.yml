@@ -44,6 +44,23 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # A checksum only says "these bytes are what I saw". This asks the Verus
+      # chain whether the Verus Coin Foundation actually signed them.
+      - name: Verify the release signature on-chain
+        if: steps.changed.outputs.changed == 'true'
+        id: verify
+        continue-on-error: true
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          set +e
+          bash scripts/verify-release.sh "${NEW_VERSION}"
+          case $? in
+            0) echo "signature=verified"    >> "$GITHUB_OUTPUT" ;;
+            1) echo "signature=REJECTED"    >> "$GITHUB_OUTPUT"; exit 1 ;;
+            *) echo "signature=unconfirmed" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Fetch upstream release notes
         if: steps.changed.outputs.changed == 'true'
         id: notes
@@ -65,15 +82,34 @@ jobs:
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
           SHA_AMD64: ${{ steps.bump.outputs.sha_amd64 }}
           SHA_ARM64: ${{ steps.bump.outputs.sha_arm64 }}
+          SIGNATURE_STATUS: ${{ steps.verify.outputs.signature }}
         run: |
           set -euo pipefail
           {
             echo "Bumps the pinned VerusCoin daemon from \`${OLD_VERSION}\` to \`${NEW_VERSION}\`."
             echo
+            echo "## Signature"
+            echo
+            case "${SIGNATURE_STATUS}" in
+              verified)
+                echo "The Verus chain confirms both archives are signed by"
+                echo "\`Verus Coin Foundation Releases@\`. Checked automatically by"
+                echo "scripts/verify-release.sh against ${VERIFY_RPC_URL:-https://api.verus.services/}."
+                ;;
+              unconfirmed)
+                echo "**Signature NOT confirmed.** The verifying node could not be reached, so"
+                echo "nothing was proven either way. Run \`scripts/verify-release.sh\` yourself"
+                echo "before merging."
+                ;;
+              *)
+                echo "**Signature REJECTED — do not merge.** See the workflow log."
+                ;;
+            esac
+            echo
             echo "## Pinned checksums"
             echo
             echo "Upstream publishes no checksum asset, so these are the root of trust for"
-            echo "the image build and they need a human to confirm them."
+            echo "the image build."
             echo
             echo "| Architecture | SHA-256 of the release \`.tgz\` |"
             echo "| --- | --- |"
@@ -90,10 +126,7 @@ jobs:
             echo "      If one is needed, it must be called out in our release notes."
             echo "- [ ] Check for consensus or RPC changes that affect the entrypoint,"
             echo "      the healthcheck, or the exporter."
-            echo "- [ ] Optionally verify the VerusID signature against a synced node:"
-            echo
-            echo '      verus verifyfile "Verus Coin Foundation Releases@" [signature] [path to .tar.gz]'
-            echo
+
             echo "Merging this does **not** publish anything. Tag the merge commit to release."
             echo
             echo "---"
