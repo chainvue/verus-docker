@@ -268,22 +268,28 @@ def collect(rpc: VerusRpc, config: Config) -> str:
     # below the block count, which made both this and the readiness probe call a
     # node synced when it was four million blocks behind. Tip age and the
     # heights our peers reported are the fields that stay honest.
+    # The median peer height, not the maximum: startingheight is self-reported
+    # in a peer's version message, so one inbound connection claiming an absurd
+    # height would otherwise pin verus_sync_complete to 0 and fire the
+    # VerusNotSynced alert on a healthy node. Kept identical to healthcheck.sh.
     peers_info = rpc.try_call("getpeerinfo")
     network_height = 0
     if isinstance(peers_info, list):
-        heights = [
-            p.get("startingheight", 0)
+        heights = sorted(
+            int(p["startingheight"])
             for p in peers_info
             if isinstance(p, dict) and isinstance(p.get("startingheight"), (int, float))
-        ]
-        network_height = int(max(heights)) if heights else 0
+        )
+        network_height = heights[len(heights) // 2] if heights else 0
 
     tiptime = _number(info, "tiptime") if isinstance(info, dict) else None
     tip_age = max(0, int(time.time() - tiptime)) if tiptime else None
     peer_count = len(peers_info) if isinstance(peers_info, list) else 0
 
-    out.add("verus_network_height", network_height or None,
-            "Highest chain height reported by any connected peer.")
+    # Emitted as 0 rather than omitted when there are no peers: a gap in the
+    # series is indistinguishable from a scrape failure on a graph.
+    out.add("verus_network_height", network_height,
+            "Median chain height reported by connected peers.")
     out.add("verus_tip_age_seconds", tip_age,
             "Age of the local chain tip. A synced node's tip is minutes old, not years.")
 
