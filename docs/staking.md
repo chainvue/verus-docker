@@ -99,23 +99,34 @@ here and no universally right answer.
 | Approach | Protects against | Cost |
 | --- | --- | --- |
 | Unencrypted wallet | Nothing | Anyone with file access has the keys |
-| Encrypted, unlocked for staking only | File theft while locked | The passphrase is in memory while unlocked |
+| Encrypted, unlocked | File theft while locked | Fully spendable while unlocked |
 | Encrypted, locked | File theft | **No staking** |
 
-Verus supports unlocking for staking specifically:
+To unlock for staking:
 
 ```bash
-docker compose exec verus verus walletpassphrase "<passphrase>" 0 true
-#                                                              ^  ^
-#                                                              │  └── staking only
-#                                                              └── 0 = no timeout
+docker compose exec verus verus walletpassphrase "<passphrase>" 99999999
+#                                                               ^
+#                                                               └── timeout in seconds
 ```
 
-The final `true` unlocks for staking and minting **without** enabling ordinary
-spending, which is meaningfully better than a full unlock. The wallet relocks on
-daemon restart, so plan for how it gets unlocked again after an upgrade or a
-reboot — an unattended node that silently stops staking after a restart is the
-most common staking failure there is.
+**Use a large timeout, not `0`.** The timeout is passed straight to the relock
+timer, so `0` schedules the relock immediately: the wallet unlocks for a few
+milliseconds and the node does not stake. It looks like it worked — there is no
+error, and the node is otherwise healthy.
+
+> **On Verus, an unlocked wallet is fully spendable.** Some coins in this
+> lineage accept a third `stakingonly` argument to `walletpassphrase`; Verus
+> does not — `walletpassphrase` takes exactly two arguments and rejects a third.
+> There is no unlock mode that permits staking but forbids spending.
+>
+> That makes the rest of this page's advice more important, not less: if the
+> wallet has to be unlocked to earn, then keeping the RPC interface unreachable
+> is the control that actually protects the funds.
+
+The wallet relocks on daemon restart, so plan for how it gets unlocked again
+after an upgrade or a reboot — an unattended node that silently stops staking
+after a restart is the most common staking failure there is.
 
 Be honest with yourself about what encryption buys on a machine where the
 passphrase must be entered after every restart. If the passphrase ends up in an
@@ -163,7 +174,7 @@ docker compose -f examples/compose.staking.yml down
 
 # 4. Change to the new immutable tag, start, then RE-UNLOCK.
 docker compose -f examples/compose.staking.yml up -d
-docker compose exec verus verus walletpassphrase "<passphrase>" 0 true
+docker compose exec verus verus walletpassphrase "<passphrase>" 99999999
 ```
 
 Step 4's second half is the one people forget.
