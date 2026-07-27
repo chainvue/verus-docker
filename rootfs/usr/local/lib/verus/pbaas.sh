@@ -177,7 +177,7 @@ verify_chain_exists() {
 
 	log_info "resolving chain definition for '${CHAIN_NAME}' on the root chain..."
 
-	if ! result="$(_root_rpc getcurrency "[\"${CHAIN_NAME}\"]")"; then
+	if ! result="$(_root_rpc getcurrency "$CHAIN_NAME")"; then
 		log_error "The root chain does not know a currency called '${CHAIN_NAME}'."
 		log_error "Check the spelling, or pass the chain's i-address instead."
 		log_error "PBaaS chain names are VerusIDs — 'chips', 'varrr' and 'vdex' are examples."
