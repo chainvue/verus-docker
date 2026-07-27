@@ -10,7 +10,7 @@
     "url": "https://bootstrap.dexstats.info/CHIPS-bootstrap.tar.gz",
     "signer": "dexstatsbootstrap@",
     "approximate_size_bytes": 10018999028,
-    "tls_note": "bootstrap.dexstats.info serves an expired certificate issued for a different hostname. verus-docker does not use PBaaS bootstraps; this URL is recorded for reference only."
+    "tls_note": "bootstrap.dexstats.info has TLS problems; see docs/pbaas.md for the current status. verus-docker does not use PBaaS bootstraps \u2014 this URL is recorded for reference only."
   },
   "notes": "Community PBaaS chain. Requires a reachable VRSC root node. Observed memory use in production is ~6 GB observed at the chain tip."
 }

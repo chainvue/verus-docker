@@ -11,11 +11,13 @@ v1.2.17-2-r1
    └─────────── the upstream VerusCoin release, verbatim
 ```
 
-| Tag | Moves? | Who should use it |
+| Tag | Moves? | Use it if... |
 | --- | --- | --- |
-| `v1.2.17-2-r1` | Never | **Production.** Immutable — this tag always means these exact bits. |
-| `v1.2.17-2` | Yes | Track image fixes for one daemon version without tracking daemon upgrades. |
-| `latest` | Yes | Development and evaluation. Never a staking node. |
+| `v1.2.17-2-r1` | **Never** | You run this in production. Immutable — always these exact bits. |
+| `v1.2.17-2` | Yes | You want image fixes for one daemon version, but upgrade the daemon deliberately. |
+| `latest` | Yes | You are evaluating or developing. **Not** for a staking node. |
+
+(Identical to the table in the README; keep them in step.)
 
 `-rN` increments when we change the image but not the daemon: a base image
 security rebuild, an entrypoint fix, a new default. It resets to `r1` whenever

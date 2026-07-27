@@ -81,6 +81,10 @@ resolve_root_rpc() {
 	# Fall back to a config that is already in this container.
 	if [[ -z "$ROOT_RPC_HOST_RESOLVED" && -f "$root_conf" ]]; then
 		log_info "using the local ${ROOT_CHAIN_CANON:-VRSC} config as the root RPC source"
+		log_warn "this resolves the root chain to 127.0.0.1, which only reaches a daemon"
+		log_warn "sharing THIS container's network namespace (network_mode: service:<root>,"
+		log_warn "or host networking). A root node in a separate container will not answer —"
+		log_warn "set ROOT_RPC_HOST instead. See docs/pbaas.md."
 		ROOT_RPC_HOST_RESOLVED="127.0.0.1"
 		[[ -n "$ROOT_RPC_USER_RESOLVED" ]] ||
 			ROOT_RPC_USER_RESOLVED="$(awk -F= '/^[[:space:]]*rpcuser[[:space:]]*=/ {sub(/^[^=]*=/, ""); print; exit}' "$root_conf" || true)"
@@ -103,7 +107,9 @@ resolve_root_rpc() {
 		log_error "  ROOT_RPC_USER=<user>"
 		log_error "  ROOT_RPC_PASSWORD=<password>"
 		log_error ""
-		log_error "Or mount the VRSC data volume into this container so the config is found."
+		log_error "Mounting the root chain's data volume here is NOT enough on its own: the"
+		log_error "config it contains points at 127.0.0.1, which is this container, not the"
+		log_error "root daemon. That path only works with a shared network namespace."
 		log_error "A complete working example lives in examples/compose.pbaas.yml."
 		die "no root chain RPC configured for PBaaS chain '${CHAIN_NAME}'"
 	fi
@@ -194,7 +200,19 @@ write_root_conf_shim() {
 	# rpcallowip, indexes and credentials on its next restart.
 	if [[ -f "$root_conf" ]] && ! grep -q "$ROOT_CONF_SHIM_MARKER" "$root_conf" 2>/dev/null; then
 		log_info "a real ${ROOT_CHAIN_CANON:-VRSC} config exists at ${root_conf}; leaving it untouched"
-		log_info "  verusd will read the root credentials from it rather than from ROOT_RPC_*"
+		if [[ -n "${ROOT_RPC_HOST:-}${ROOT_RPC_URL:-}" ]]; then
+			log_banner_warning \
+				"ROOT_RPC_* is set, but a real root config is mounted here." \
+				"" \
+				"verusd reads the root chain's host and credentials from that" \
+				"config, not from ROOT_RPC_*, so your setting is ignored for the" \
+				"daemon's own lookup. If that config says rpchost=127.0.0.1 and" \
+				"the root daemon is in another container, the chain will fail to" \
+				"start." \
+				"" \
+				"Either stop mounting the root config here, or give the two" \
+				"containers a shared network namespace."
+		fi
 		return 0
 	fi
 

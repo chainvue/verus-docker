@@ -73,6 +73,8 @@ a shared volume.
 }
 ```
 
+(Trimmed — the real response carries about twenty more fields.)
+
 That works with no arguments and no configuration because the image ships a
 `verus` wrapper on `PATH` that injects the right `-chain` flag. `docker compose
 exec verus verus getinfo` does the same thing.

@@ -174,6 +174,10 @@ The daemon has bootstrap URLs compiled in for CHIPS, vARRR and vDEX, pointing at
 1. **That host serves an expired TLS certificate**, issued for a different
    hostname entirely. `curl` fails with error 60. The daemon does not notice
    because it disables certificate verification.
+
+   *Last checked 2026-07-27.* This is the canonical statement of that fact in
+   this repository; everywhere else links here, so when the host fixes its
+   certificate only this paragraph needs updating.
 2. It is published by a **third party** (`dexstatsbootstrap@`), not the Verus
    Coin Foundation. That is a different trust decision from a mainnet bootstrap
    and deserves to be made consciously.

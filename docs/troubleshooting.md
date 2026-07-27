@@ -201,9 +201,9 @@ the archive.
 
 ### `TLS certificate verification failed`
 
-The third-party PBaaS bootstrap host `bootstrap.dexstats.info` serves an expired
-certificate, issued for a different hostname. The daemon does not notice because
-it disables certificate verification entirely; this image does not.
+The third-party PBaaS bootstrap host serves an expired certificate — see
+[docs/pbaas.md](pbaas.md#bootstraps-are-not-available-for-pbaas) for the detail. The daemon does not notice because it disables
+certificate verification entirely; this image does not.
 
 `BOOTSTRAP_INSECURE_TLS=true` proceeds anyway. The SHA-256 check still runs, so
 corruption is still caught — but the server's identity is not authenticated.

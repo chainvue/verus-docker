@@ -48,6 +48,8 @@ docker exec verus verus getinfo
 }
 ```
 
+(Trimmed — the real response carries about twenty more fields.)
+
 ### Talk to it over HTTP
 
 Credentials are generated on first start and written into the data volume, so
@@ -225,9 +227,9 @@ Two caveats worth knowing up front:
 - **`https://` root URLs cannot work.** verusd speaks plain HTTP to a host:port
   pair, so a public gateway such as `api.verus.services` cannot serve as the
   root. Use your own node over a private network.
-- **PBaaS bootstraps are unavailable.** The community bootstrap host currently
-  serves an expired certificate issued for a different hostname. PBaaS chains
-  sync from the network.
+- **PBaaS bootstraps are unavailable** while the community bootstrap host serves
+  an expired certificate — see [PBaaS chains](docs/pbaas.md#bootstraps-are-not-available-for-pbaas).
+  Those chains sync from the network instead.
 
 ---
 
@@ -256,6 +258,8 @@ Two caveats worth knowing up front:
 In Kubernetes the pod becomes **Ready only once the chain is synced** — readiness
 means "safe to serve RPC". Liveness is a separate probe, so a node doing its
 initial sync is never restarted out from under itself.
+
+> Examples on this page pipe to `jq`. Install it, or drop the pipe.
 
 ## Documentation
 
