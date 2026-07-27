@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/chainvue/verus-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/chainvue/verus-docker/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/chainvue/verus-docker?sort=semver)](https://github.com/chainvue/verus-docker/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Verus](https://img.shields.io/badge/verusd-v1.2.17--2-blueviolet)](https://github.com/VerusCoin/VerusCoin/releases)
 
 ---
@@ -275,6 +275,7 @@ initial sync is never restarted out from under itself.
 | [Development](docs/development.md) | Building, testing, conventions, invariants |
 | [Releasing](docs/maintainers/releasing.md) | Maintainer runbook |
 | [Repository setup](docs/maintainers/repository-setup.md) | One-time GitHub settings |
+| [Licensing](LICENSING.md) | What is in the image, and under which licences |
 
 Runnable RPC examples in [`examples/rpc/`](examples/rpc/) — curl, Node and
 Python, each connecting and reading a block with no configuration.
@@ -341,8 +342,14 @@ own keys, your own backups and your own security posture — start with
 [production.md](docs/production.md) and, if you stake,
 [staking.md](docs/staking.md).
 
-Provided as-is under the MIT licence, with no warranty of any kind.
+Provided as-is under the Apache-2.0 licence, with no warranty of any kind.
 
-## License
+## Licence
 
-[MIT](LICENSE)
+This repository is [Apache-2.0](LICENSE).
+
+The **published image is a composite work**: it bundles the upstream Verus
+daemon (MIT), which links Berkeley DB 6.2 (AGPL-3.0). That is upstream's own
+build choice, and upstream documents it. If you are doing a licence review,
+read **[LICENSING.md](LICENSING.md)** — it explains what is in the image, what
+it means in practice, and how to verify it from the signed SBOM.

@@ -1,0 +1,36 @@
+verus-docker
+Copyright 2026 Robert Lech and the verus-docker contributors
+
+This product includes software developed by the verus-docker contributors,
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components in the published container image
+--------------------------------------------------------------------------------
+
+The image published from this repository is a composite work. This repository's
+own source is Apache-2.0, but the image also contains software that is not:
+
+1. VerusCoin daemon (verusd, verus)
+   https://github.com/VerusCoin/VerusCoin
+   MIT licence. Copyright (c) 2009-2017 The Bitcoin Core developers,
+   2009-2018 Bitcoin Developers, 2016-2024 The Zcash developers,
+   2016-2025 The Komodo developers, 2018-2025 The VerusCoin developers.
+
+   The binaries are downloaded unmodified from official upstream releases and
+   verified against a pinned SHA-256 at build time. This project does not
+   modify, patch or fork the daemon.
+
+2. Oracle Berkeley DB 6.2.x — GNU Affero General Public License
+   Upstream's COPYING states that with default build options the daemon depends
+   on Berkeley DB 6.2.x, which is AGPL-licensed. The official binaries this
+   image ships are built that way, so the image contains AGPL-licensed code.
+   See LICENSING.md for what that means for you.
+
+3. Debian GNU/Linux base image and its packages
+   Various licences. An SPDX SBOM is attached to every release and attested to
+   the image; see LICENSING.md for how to read it.
+
+4. Zcash proving parameters
+   Not shipped in the image. They are downloaded at runtime into a volume you
+   own, from https://verus.io/zcparams, and hash-verified.

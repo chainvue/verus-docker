@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Shared helpers for the verus-docker entrypoint and its libraries.
 #
 # This file is sourced, never executed. It deliberately does not set shell

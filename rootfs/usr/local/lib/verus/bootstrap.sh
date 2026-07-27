@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Bootstrap (chain snapshot) download.
 #
 # We deliberately do NOT use verusd's own -bootstrap / -bootstrapinstall flags:

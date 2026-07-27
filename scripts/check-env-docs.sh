@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Fail if an environment variable the container reads is not documented.
 #
 # Undocumented configuration is the classic way a node image rots: someone adds

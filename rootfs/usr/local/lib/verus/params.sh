@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Zcash proving/verifying parameters.
 #
 # verusd refuses to start without these (checkParams() during init). They live

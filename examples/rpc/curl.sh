@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Talk to a Verus node from the shell.
 #
 #   ./curl.sh

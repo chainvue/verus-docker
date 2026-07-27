@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # shellcheck disable=SC2034  # these globals are consumed by the scripts that source this file
 # Chain resolution: turn the CHAIN env var into paths, ports and a chain kind.
 #

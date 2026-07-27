@@ -158,6 +158,17 @@ Release mechanics are automated and documented in
 [docs/maintainers/releasing.md](docs/maintainers/releasing.md) — merging your PR
 does not publish anything, so there is no need to worry about timing.
 
+## Licensing of contributions
+
+This project is Apache-2.0. Under section 5 of that licence, anything you
+deliberately submit for inclusion is licensed under the same terms unless you
+say otherwise in the pull request. There is no CLA to sign.
+
+If you are contributing on behalf of an employer, make sure you are entitled to.
+
+Note that the *published image* is a composite work — see
+[LICENSING.md](LICENSING.md).
+
 ## Code of Conduct
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). It is

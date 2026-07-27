@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Pin the Dockerfile to a new upstream VerusCoin release.
 #
 # Upstream publishes no SHA256SUMS, .asc or .sig asset, and the hashes in the

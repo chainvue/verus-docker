@@ -108,6 +108,7 @@ Ready-made rules live in
 down, height stuck, zero peers, peer starvation, fell out of sync, and wallet
 locked on a staking node.
 
-## License
+## Licence
 
-MIT, same as the rest of the repository.
+Apache-2.0, same as the rest of the repository. See
+[LICENSING.md](../LICENSING.md).

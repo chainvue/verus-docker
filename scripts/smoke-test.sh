@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Smoke test for the verus-docker image. Run by CI, and useful locally:
 #
 #   scripts/smoke-test.sh                       # builds nothing, uses IMAGE

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Host-side convenience wrapper around the in-container `verus` CLI.
 #
 #   ./scripts/verus-cli.sh getinfo

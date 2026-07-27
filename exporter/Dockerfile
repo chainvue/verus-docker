@@ -16,7 +16,7 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="verus-exporter" \
       org.opencontainers.image.description="Prometheus exporter for Verus (verusd) nodes" \
       org.opencontainers.image.source="https://github.com/chainvue/verus-docker" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="Apache-2.0 AND MIT AND AGPL-3.0" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 

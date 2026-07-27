@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """Prometheus exporter for a Verus (verusd) node.
 
 Why this exists rather than a fork of an existing exporter: verusd descends

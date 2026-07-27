@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # PBaaS chain support.
 #
 # THE THING NOBODY DOCUMENTS: a PBaaS daemon does not read its chain definition

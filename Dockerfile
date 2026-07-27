@@ -102,12 +102,15 @@ ARG IMAGE_REVISION=dev
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 
+# The licenses label is a compound SPDX expression on purpose: this project is
+# Apache-2.0, the bundled verusd is MIT, and verusd links AGPL Berkeley DB.
+# See LICENSING.md for what that means for a redistributor.
 LABEL org.opencontainers.image.title="verus-docker" \
       org.opencontainers.image.description="Production-ready Verus (VRSC) full node — mainnet, testnet and any PBaaS chain" \
       org.opencontainers.image.source="https://github.com/chainvue/verus-docker" \
       org.opencontainers.image.documentation="https://github.com/chainvue/verus-docker#readme" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.vendor="The verus-docker contributors" \
+      org.opencontainers.image.licenses="Apache-2.0 AND MIT AND AGPL-3.0" \
+      org.opencontainers.image.vendor="Robert Lech and the verus-docker contributors" \
       org.opencontainers.image.version="${VERUS_VERSION}-${IMAGE_REVISION}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.created="${BUILD_DATE}" \

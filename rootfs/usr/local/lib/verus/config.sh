@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Configuration and credential handling.
 #
 # Why we write our own config at all: when the config file is missing, verusd

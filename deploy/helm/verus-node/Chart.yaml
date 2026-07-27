@@ -14,7 +14,8 @@ home: https://github.com/chainvue/verus-docker
 sources:
   - https://github.com/chainvue/verus-docker
 maintainers:
-  - name: The verus-docker contributors
+  - name: Robert Lech
     url: https://github.com/chainvue/verus-docker
 annotations:
   category: Blockchain
+  licenses: Apache-2.0
