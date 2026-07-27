@@ -178,8 +178,9 @@ Every variable is optional. Full reference with commentary: [`.env.example`](.en
 | `ROOT_RPC_USER` | — | Root node RPC user. |
 | `ROOT_RPC_PASSWORD` | — | Root node RPC password. |
 | `ROOT_WAIT_TIMEOUT` | `900` | Seconds to wait for the root chain to become usable. |
-| `ROOT_MIN_PROGRESS` | `0.999` | How synced the root chain must be before a PBaaS chain starts. |
-| `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind tip still counted as synced. |
+| `ROOT_MAX_TIP_AGE` | `1800` | How old the root chain's tip may be, in seconds, before a PBaaS chain will start. |
+| `SYNCED_TOLERANCE_BLOCKS` | `2` | Blocks behind the peers' height still counted as synced. |
+| `SYNCED_MAX_TIP_AGE` | `1800` | How old the chain tip may be, in seconds, and still count as synced. |
 | `HEALTH_FILE` | `/tmp/health.json` | Where the probe writes machine-readable state. |
 | `MAX_CONNECTIONS` | daemon default | Cap peers. Lowering it slows initial sync. |
 | `EXTRA_ARGS` | — | Passed to `verusd` verbatim. |

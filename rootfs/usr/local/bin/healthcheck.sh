@@ -96,7 +96,8 @@ load_credentials() {
 }
 
 main() {
-	local info peers blocks headers progress tolerance behind state
+	local info info_general peers blocks headers progress tolerance behind state
+	local rpc_url tiptime tip_age max_tip_age network_height
 
 	parse_args "$@"
 
@@ -110,7 +111,9 @@ main() {
 		exit 1
 	fi
 
-	if ! info="$(rpc_call "http://127.0.0.1:${RPC_PORT}/" "$RPC_USER" "$RPC_PASSWORD" getblockchaininfo)"; then
+	rpc_url="http://127.0.0.1:${RPC_PORT}/"
+
+	if ! info="$(rpc_call "$rpc_url" "$RPC_USER" "$RPC_PASSWORD" getblockchaininfo)"; then
 		say "unhealthy: daemon is not responding on 127.0.0.1:${RPC_PORT}"
 		write_health "starting" 0 0 0 0
 		exit 1
@@ -121,18 +124,45 @@ main() {
 	progress="$(jq -r '.verificationprogress // 0' <<<"$info")"
 
 	# Best effort; never fail the probe because the peer count was unavailable.
-	peers="$(rpc_call "http://127.0.0.1:${RPC_PORT}/" "$RPC_USER" "$RPC_PASSWORD" getconnectioncount 2>/dev/null || echo 0)"
+	peers="$(rpc_call "$rpc_url" "$RPC_USER" "$RPC_PASSWORD" getconnectioncount 2>/dev/null || echo 0)"
 	[[ "$peers" =~ ^[0-9]+$ ]] || peers=0
 
+	# tiptime lives on getinfo, not getblockchaininfo.
+	info_general="$(rpc_call "$rpc_url" "$RPC_USER" "$RPC_PASSWORD" getinfo 2>/dev/null || echo '{}')"
+
+	# Determining "synced" is not as simple as it looks on this daemon.
+	#
+	# During initial sync verusd reports verificationprogress=1 and a `headers`
+	# count that can sit BELOW `blocks` — observed on mainnet at block 68,883 of
+	# ~4.17M, which made the naive check declare a node ready that was four
+	# million blocks behind. Two fields do stay honest:
+	#
+	#   tiptime                    the timestamp of our chain tip
+	#   getpeerinfo startingheight what our peers' heights were when we connected
+	#
+	# A synced node has a recent tip and is level with its peers. Both are
+	# required, and a node with no peers can never claim to be synced because it
+	# has nothing to compare against.
 	tolerance="${SYNCED_TOLERANCE_BLOCKS:-2}"
-	behind=$((headers - blocks))
+	max_tip_age="${SYNCED_MAX_TIP_AGE:-1800}"
+
+	tiptime="$(jq -r '.tiptime // 0' <<<"$info_general")"
+	tip_age=$(($(date -u +%s) - tiptime))
+	((tip_age < 0)) && tip_age=0
+
+	# Highest height any peer reported. Best effort: an empty result simply
+	# means we fall back to the tip-age test alone.
+	network_height="$(rpc_call "$rpc_url" "$RPC_USER" "$RPC_PASSWORD" getpeerinfo 2>/dev/null |
+		jq -r '[.[]?.startingheight // 0] | max // 0' 2>/dev/null || echo 0)"
+	[[ "$network_height" =~ ^[0-9]+$ ]] || network_height=0
+
+	behind=$((network_height - blocks))
 	((behind < 0)) && behind=0
 
-	if ((headers > 0)) && ((behind <= tolerance)) &&
-		awk -v p="$progress" 'BEGIN {exit !(p >= 0.9999)}'; then
+	state="syncing"
+	if ((peers > 0)) && ((tiptime > 0)) && ((tip_age <= max_tip_age)) &&
+		((network_height == 0 || behind <= tolerance)); then
 		state="synced"
-	else
-		state="syncing"
 	fi
 
 	write_health "$state" "$blocks" "$headers" "$progress" "$peers"
@@ -142,11 +172,15 @@ main() {
 		exit 0
 	fi
 
-	# During initial sync the header count briefly lags the block count, which
-	# would otherwise render as a nonsensical "block 6292/3968".
-	local target="$headers"
-	((blocks > target)) && target="$blocks"
-	say "syncing: block ${blocks}/${target} ($(awk -v p="$progress" 'BEGIN {printf "%.2f%%", p * 100}')), ${peers} peers"
+	# Report against the peers' height: verusd's own header count is not a
+	# dependable denominator during initial sync.
+	local target="$network_height"
+	((target < blocks)) && target="$blocks"
+	if ((target > 0)); then
+		say "syncing: block ${blocks}/${target} ($(awk -v b="$blocks" -v t="$target" 'BEGIN {printf "%.2f%%", (t ? b / t : 0) * 100}')), ${peers} peers, tip $(human_age "$tip_age") old"
+	else
+		say "syncing: block ${blocks}, ${peers} peers, tip $(human_age "$tip_age") old"
+	fi
 
 	if [[ "$REQUIRE_SYNCED" == true ]]; then
 		exit 2

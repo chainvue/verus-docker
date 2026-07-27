@@ -244,6 +244,20 @@ dir_has_chain_data() {
 	[[ -d "${datadir}/blocks" && -d "${datadir}/chainstate" ]]
 }
 
+# human_age <seconds> — compact age for log lines ("14m", "3h", "8y").
+human_age() {
+	local s="${1:-0}"
+	if ((s < 3600)); then
+		printf '%dm\n' $((s / 60))
+	elif ((s < 86400)); then
+		printf '%dh\n' $((s / 3600))
+	elif ((s < 31536000)); then
+		printf '%dd\n' $((s / 86400))
+	else
+		printf '%dy\n' $((s / 31536000))
+	fi
+}
+
 # human_bytes <bytes>
 human_bytes() {
 	local bytes="${1:-0}"

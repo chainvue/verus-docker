@@ -130,24 +130,30 @@ _root_rpc() {
 # meaningful chain definition.
 wait_for_root_chain() {
 	local timeout="${ROOT_WAIT_TIMEOUT:-900}"
-	local min_progress="${ROOT_MIN_PROGRESS:-0.999}"
+	local max_tip_age="${ROOT_MAX_TIP_AGE:-1800}"
 	local deadline=$((SECONDS + timeout))
-	local info progress blocks reported=0
+	local info blocks tiptime tip_age reported=0
 
 	log_info "waiting for the root chain to become available (timeout ${timeout}s)..."
 
 	while ((SECONDS < deadline)); do
-		if info="$(_root_rpc getblockchaininfo)"; then
-			progress="$(jq -r '.verificationprogress // 0' <<<"$info")"
+		# Judged on the age of the root chain's tip, not on
+		# verificationprogress: verusd reports that as 1 during early sync, so
+		# it would wave through a root node millions of blocks behind and the
+		# PBaaS daemon would then fail with "Cannot find blockchain data".
+		if info="$(_root_rpc getinfo)"; then
 			blocks="$(jq -r '.blocks // 0' <<<"$info")"
+			tiptime="$(jq -r '.tiptime // 0' <<<"$info")"
+			tip_age=$(($(date -u +%s) - tiptime))
+			((tip_age < 0)) && tip_age=0
 
-			if awk -v p="$progress" -v m="$min_progress" 'BEGIN {exit !(p >= m)}'; then
-				log_info "root chain ready at block ${blocks} (progress $(awk -v p="$progress" 'BEGIN {printf "%.2f%%", p * 100}'))"
+			if ((tiptime > 0)) && ((tip_age <= max_tip_age)); then
+				log_info "root chain ready at block ${blocks} (tip $(human_age "$tip_age") old)"
 				return 0
 			fi
 
 			if ((reported % 6 == 0)); then
-				log_info "  root chain still syncing: block ${blocks}, progress $(awk -v p="$progress" 'BEGIN {printf "%.2f%%", p * 100}')"
+				log_info "  root chain still syncing: block ${blocks}, tip $(human_age "$tip_age") old"
 			fi
 		elif ((reported % 6 == 0)); then
 			log_info "  root chain not answering yet at $(_root_url)"
@@ -158,6 +164,7 @@ wait_for_root_chain() {
 	done
 
 	log_error "the root chain did not become ready within ${timeout}s."
+	log_error "Its chain tip is more than ${max_tip_age}s old, so it is still catching up."
 	log_error "Raise ROOT_WAIT_TIMEOUT if the root node is still doing its initial sync;"
 	log_error "a PBaaS chain cannot start before its root chain is usable."
 	die "timed out waiting for the root chain"
