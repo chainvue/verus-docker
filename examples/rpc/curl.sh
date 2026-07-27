@@ -7,7 +7,7 @@
 # Reads credentials from the node's data volume by default, so there is nothing
 # to configure. Override any of these if your node lives elsewhere:
 #
-#   VERUS_CONTAINER=verus  VERUS_RPC_URL=http://127.0.0.1:18843
+#   VERUS_CONTAINER=verus-node  VERUS_RPC_URL=http://127.0.0.1:18843
 #   VERUS_RPC_USER=...     VERUS_RPC_PASSWORD=...
 #
 # Note the container does NOT publish its RPC port by default, and you should

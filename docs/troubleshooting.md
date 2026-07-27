@@ -132,7 +132,7 @@ run with `PUID`/`PGID`.
 ### The container is OOM-killed
 
 ```bash
-docker inspect verus --format '{{.State.OOMKilled}}'
+docker inspect verus-node --format '{{.State.OOMKilled}}'
 ```
 
 verusd wants roughly **12 GiB at the mainnet chain tip**. Set the limit to
@@ -152,7 +152,7 @@ Adding swap is a legitimate mitigation. Slow beats killed.
 ### `No space left on device`, or corruption right after the disk filled
 
 ```bash
-docker exec verus df -h /home/verus/.komodo
+docker exec verus-node df -h /home/verus/.komodo
 ```
 
 Running out of space mid-write is one of the two reliable ways to corrupt the
@@ -319,7 +319,8 @@ Before opening an issue, collect:
 docker compose exec verus verus getinfo
 docker compose exec verus healthcheck.sh
 docker compose logs --tail 100 verus
-docker inspect verus --format '{{.Config.Image}} {{.State.Status}} OOMKilled={{.State.OOMKilled}}'
+docker inspect "$(docker compose ps -q verus)" \
+  --format '{{.Config.Image}} {{.State.Status}} OOMKilled={{.State.OOMKilled}}'
 ```
 
 Then use the bug report template, which asks for exactly those. Questions rather

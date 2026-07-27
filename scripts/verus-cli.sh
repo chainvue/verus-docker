@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-readonly DEFAULT_CONTAINER="verus"
+readonly DEFAULT_CONTAINER="verus-node"
 readonly DEFAULT_SERVICE="verus"
 
 usage() {
