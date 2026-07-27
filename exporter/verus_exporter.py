@@ -262,9 +262,40 @@ def collect(rpc: VerusRpc, config: Config) -> str:
 
     # Mirrors healthcheck.sh --require-synced so dashboards and readiness probes
     # cannot disagree about what "synced" means.
-    if blocks is not None and headers is not None and progress is not None:
+    #
+    # Deliberately does NOT use verificationprogress or the header count: during
+    # initial sync verusd reports progress=1 and a header count that can sit
+    # below the block count, which made both this and the readiness probe call a
+    # node synced when it was four million blocks behind. Tip age and the
+    # heights our peers reported are the fields that stay honest.
+    peers_info = rpc.try_call("getpeerinfo")
+    network_height = 0
+    if isinstance(peers_info, list):
+        heights = [
+            p.get("startingheight", 0)
+            for p in peers_info
+            if isinstance(p, dict) and isinstance(p.get("startingheight"), (int, float))
+        ]
+        network_height = int(max(heights)) if heights else 0
+
+    tiptime = _number(info, "tiptime") if isinstance(info, dict) else None
+    tip_age = max(0, int(time.time() - tiptime)) if tiptime else None
+    peer_count = len(peers_info) if isinstance(peers_info, list) else 0
+
+    out.add("verus_network_height", network_height or None,
+            "Highest chain height reported by any connected peer.")
+    out.add("verus_tip_age_seconds", tip_age,
+            "Age of the local chain tip. A synced node's tip is minutes old, not years.")
+
+    if blocks is not None:
         tolerance = float(os.environ.get("SYNCED_TOLERANCE_BLOCKS", "2"))
-        synced = headers > 0 and (headers - blocks) <= tolerance and progress >= 0.9999
+        max_tip_age = float(os.environ.get("SYNCED_MAX_TIP_AGE", "1800"))
+        synced = (
+            peer_count > 0
+            and tip_age is not None
+            and tip_age <= max_tip_age
+            and (network_height == 0 or (network_height - blocks) <= tolerance)
+        )
         out.add("verus_sync_complete", synced, "1 when the node is fully caught up.")
 
     if isinstance(info, dict):
@@ -281,7 +312,7 @@ def collect(rpc: VerusRpc, config: Config) -> str:
             "Total peer connections.",
         )
 
-    _collect_peers(out, rpc)
+    _collect_peers(out, rpc, peers_info)
     _collect_mempool(out, rpc)
     _collect_mining(out, rpc)
     _collect_network(out, rpc)
@@ -296,8 +327,9 @@ def collect(rpc: VerusRpc, config: Config) -> str:
     return out.render()
 
 
-def _collect_peers(out: MetricWriter, rpc: VerusRpc) -> None:
-    peers = rpc.try_call("getpeerinfo")
+def _collect_peers(out: MetricWriter, rpc: VerusRpc, peers: Any = None) -> None:
+    if peers is None:
+        peers = rpc.try_call("getpeerinfo")
     if not isinstance(peers, list):
         # Fall back to the cheaper call; better a total than nothing.
         count = rpc.try_call("getconnectioncount")

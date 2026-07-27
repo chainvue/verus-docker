@@ -80,10 +80,12 @@ Every metric carries a `chain` label.
 | `verus_blocks` | gauge | Validated blocks in the local chain. |
 | `verus_headers` | gauge | Known block headers. A widening gap against `verus_blocks` means falling behind. |
 | `verus_verification_progress` | gauge | Sync progress, 0 to 1. |
-| `verus_sync_complete` | gauge | `1` when fully caught up. Uses the same rule as `healthcheck.sh --require-synced`, so dashboards and readiness probes cannot disagree. |
+| `verus_sync_complete` | gauge | `1` when fully caught up. Same rule as `healthcheck.sh --require-synced`: peers present, tip recent, level with the peers' height. Deliberately ignores `verificationprogress` and `headers`, which verusd reports unreliably during initial sync. |
 | `verus_difficulty` | gauge | Current chain difficulty. |
 | `verus_size_on_disk_bytes` | gauge | Chain data size on disk. |
 | `verus_version_info` | gauge | Always `1`; the daemon version rides in a `version` label. |
+| `verus_network_height` | gauge | Highest height any connected peer reported. The honest denominator for sync progress. |
+| `verus_tip_age_seconds` | gauge | Age of the local chain tip. A synced node's tip is minutes old, not years. |
 | `verus_peers` | gauge | Peer count, split by `direction` (`inbound`/`outbound`, or `all` on fallback). |
 | `verus_connections_total` | gauge | Total connections as the daemon reports them. |
 | `verus_mempool_txs` | gauge | Transactions in the mempool. |

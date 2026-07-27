@@ -37,7 +37,7 @@ services:
     # Pin an immutable tag. An unattended image change under a staking wallet is
     # a bad surprise; upgrade deliberately after reading the release notes.
     #   image: ghcr.io/chainvue/verus-docker:v1.2.17-2-r1
-    image: ghcr.io/chainvue/verus-docker:latest
+    image: ${VERUS_IMAGE:-ghcr.io/chainvue/verus-docker:latest}
     container_name: verus-staking
     restart: unless-stopped
 

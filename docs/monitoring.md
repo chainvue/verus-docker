@@ -43,8 +43,10 @@ Every metric carries a `chain` label, so one dashboard covers a multi-chain host
 | `verus_up` | `1` when the daemon answered. **Always emitted**, so alerts can tell "node down" from "exporter down". |
 | `verus_blocks` | Validated blocks locally |
 | `verus_headers` | Headers known. A widening gap against `verus_blocks` means falling behind. |
-| `verus_verification_progress` | 0 to 1 |
-| `verus_sync_complete` | `1` when caught up. Same rule as `healthcheck.sh --require-synced`, so dashboards and readiness probes cannot disagree. |
+| `verus_verification_progress` | 0 to 1 — **do not trust this during initial sync**; verusd reports 1 almost immediately. Use `verus_blocks / verus_network_height` instead. |
+| `verus_sync_complete` | `1` when caught up. Same rule as `healthcheck.sh --require-synced`. |
+| `verus_network_height` | Highest height any peer reported — the real denominator for sync progress. |
+| `verus_tip_age_seconds` | Age of the local chain tip. |
 | `verus_difficulty` | Current difficulty |
 | `verus_size_on_disk_bytes` | Chain data size |
 | `verus_version_info` | Always `1`; version rides in a `version` label |
