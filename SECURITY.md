@@ -112,7 +112,7 @@ The SBOM is also attached to each GitHub release.
 | Verus binaries | SHA-256 pinned per architecture, and the VerusID signature verified on-chain at bump time; the build fails hard on mismatch |
 | Zcash parameters | SHA-256 verified against the values pinned in the daemon's own source |
 | Bootstraps | Published SHA-256 verified before extraction; abort and delete on mismatch |
-| Base image | Rebuilt weekly when the upstream digest moves |
+| Base images | Pinned by digest, not just tag; rebuilt weekly when a digest moves |
 | GitHub Actions | Pinned to 40-character commit SHAs, not mutable tags |
 | Releases | CI-only, from a tag, cosign-signed with an SBOM |
 

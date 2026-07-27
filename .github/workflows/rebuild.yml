@@ -25,34 +25,54 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve the current base image digest
+      - name: Re-resolve the pinned base image digests
         id: base
         run: |
           set -euo pipefail
-          tag="$(awk -F= '/^ARG DEBIAN_TAG=/ {print $2; exit}' Dockerfile | tr -d '"'"'"' \r')"
-          tag="${tag:-bookworm-slim}"
-          docker pull --quiet "debian:${tag}" > /dev/null
-          digest="$(docker image inspect "debian:${tag}" --format '{{index .RepoDigests 0}}' | cut -d@ -f2)"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
-          echo "debian:${tag} is currently ${digest}"
+          changed=0
 
-      - name: Compare against the last release
+          deb_tag="$(sed -n 's/^ARG DEBIAN_TAG=//p' Dockerfile | head -1)"
+          deb_old="$(sed -n 's/^ARG DEBIAN_DIGEST=//p' Dockerfile | head -1)"
+          deb_new="$(docker buildx imagetools inspect "debian:${deb_tag}" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)"
+
+          py_tag="$(sed -n 's/^ARG PYTHON_TAG=//p' exporter/Dockerfile | head -1)"
+          py_old="$(sed -n 's/^ARG PYTHON_DIGEST=//p' exporter/Dockerfile | head -1)"
+          py_new="$(docker buildx imagetools inspect "python:${py_tag}" | sed -n 's/^Digest:[[:space:]]*//p' | head -1)"
+
+          for d in "$deb_new" "$py_new"; do
+            case "$d" in
+              sha256:*) ;;
+              *) echo "::error::could not resolve a base image digest"; exit 1 ;;
+            esac
+          done
+
+          if [ "$deb_new" != "$deb_old" ]; then
+            sed -i "s|^ARG DEBIAN_DIGEST=.*|ARG DEBIAN_DIGEST=${deb_new}|" Dockerfile
+            changed=1
+          fi
+          if [ "$py_new" != "$py_old" ]; then
+            sed -i "s|^ARG PYTHON_DIGEST=.*|ARG PYTHON_DIGEST=${py_new}|" exporter/Dockerfile
+            changed=1
+          fi
+
+          {
+            echo "changed=${changed}"
+            echo "deb_tag=${deb_tag}"
+            echo "deb_old=${deb_old}"
+            echo "deb_new=${deb_new}"
+            echo "py_tag=${py_tag}"
+            echo "py_old=${py_old}"
+            echo "py_new=${py_new}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Did anything move?
         id: compare
-        env:
-          DIGEST: ${{ steps.base.outputs.digest }}
         run: |
-          set -euo pipefail
-          recorded=""
-          [[ -f .github/base-image-digest ]] && recorded="$(cat .github/base-image-digest)"
-
-          if [[ "$recorded" == "$DIGEST" ]]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Base image is unchanged; nothing to do."
-          else
+          if [ "${{ steps.base.outputs.changed }}" = "1" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "previous=${recorded:-none}" >> "$GITHUB_OUTPUT"
-            printf '%s\n' "$DIGEST" > .github/base-image-digest
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Base images are unchanged; nothing to do."
           fi
 
       - name: Work out the next revision
@@ -73,17 +93,20 @@ jobs:
             dependencies
           delete-branch: true
           add-paths: |
-            .github/base-image-digest
+            Dockerfile
+            exporter/Dockerfile
           body: |
-            The `debian:${{ steps.base.outputs.tag }}` base image digest changed, so the
-            published images are missing whatever was patched in it.
+            A pinned base image digest moved, so the published images are missing
+            whatever was patched in it.
 
-            | | |
-            | --- | --- |
-            | Previous | `${{ steps.compare.outputs.previous }}` |
-            | Current | `${{ steps.base.outputs.digest }}` |
+            | Image | Was | Now |
+            | --- | --- | --- |
+            | `debian:${{ steps.base.outputs.deb_tag }}` | `${{ steps.base.outputs.deb_old }}` | `${{ steps.base.outputs.deb_new }}` |
+            | `python:${{ steps.base.outputs.py_tag }}` | `${{ steps.base.outputs.py_old }}` | `${{ steps.base.outputs.py_new }}` |
+
+            Rows where the two columns match were not touched by this PR.
 
             The daemon version is unchanged. Merge this and tag
-            **`${{ steps.version.outputs.next }}`** to publish the rebuilt image.
+            **`${{ steps.version.outputs.next }}`** to publish the rebuilt images.
 
             Nothing is published until that tag is pushed.

@@ -143,6 +143,8 @@ command** — after `set -euo pipefail` is too late.
 - Debian base is not a preference: the upstream binaries need `GLIBC_2.28` and
   `GLIBCXX_3.4.22`, so musl images cannot run them.
 - Build tooling stays in earlier stages.
+- Base images are pinned by digest as well as tag. Do not replace a digest by
+  hand — `rebuild.yml` re-resolves them weekly and opens a PR.
 
 ### Documentation
 

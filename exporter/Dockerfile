@@ -5,9 +5,11 @@
 # Standard library only, so the runtime is a stock slim Python image with no
 # pip layer and nothing to keep patched beyond the base itself.
 
+# Pinned by digest for the same reason as the node image; see its Dockerfile.
 ARG PYTHON_TAG=3.12-slim
+ARG PYTHON_DIGEST=sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de
 
-FROM python:${PYTHON_TAG}
+FROM python:${PYTHON_TAG}@${PYTHON_DIGEST}
 
 ARG IMAGE_REVISION=dev
 ARG VCS_REF=unknown

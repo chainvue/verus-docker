@@ -18,7 +18,13 @@
 # =============================================================================
 
 ARG VERUS_VERSION=v1.2.17-2
+# The base is pinned by digest, not just by tag. A tag is mutable, so two builds
+# a day apart could otherwise produce different bytes with no record of why. The
+# tag stays for readability; the digest is what is actually resolved.
+# rebuild.yml re-resolves it weekly and opens a PR when it moves, which is how
+# base-image security fixes reach published images.
 ARG DEBIAN_TAG=bookworm-slim
+ARG DEBIAN_DIGEST=sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 # -----------------------------------------------------------------------------
 # Stage 1: fetch and verify the upstream binaries.
@@ -26,7 +32,7 @@ ARG DEBIAN_TAG=bookworm-slim
 # Pinned to BUILDPLATFORM: this stage only downloads and unpacks, so there is no
 # reason to run it under emulation when cross-building.
 # -----------------------------------------------------------------------------
-FROM --platform=${BUILDPLATFORM} debian:${DEBIAN_TAG} AS fetch
+FROM --platform=${BUILDPLATFORM} debian:${DEBIAN_TAG}@${DEBIAN_DIGEST} AS fetch
 
 ARG VERUS_VERSION
 ARG TARGETARCH
@@ -95,7 +101,7 @@ RUN set -eux; \
 # Debian is required: the upstream binaries need GLIBC_2.28 / GLIBCXX_3.4.22,
 # so musl-based images such as Alpine cannot run them.
 # -----------------------------------------------------------------------------
-FROM debian:${DEBIAN_TAG}
+FROM debian:${DEBIAN_TAG}@${DEBIAN_DIGEST}
 
 ARG VERUS_VERSION
 ARG IMAGE_REVISION=dev

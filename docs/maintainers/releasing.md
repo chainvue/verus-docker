@@ -155,10 +155,21 @@ release notes — users pin their infrastructure on our defaults.
 
 ### `rebuild.yml`
 
-Weekly. Compares the current `debian:bookworm-slim` digest against
-`.github/base-image-digest`. If it moved, published images are missing whatever
-was patched, so it opens a PR updating the recorded digest. Merge it and tag the
-next `-rN`.
+Weekly. Both Dockerfiles pin their base image by digest as well as by tag:
+
+```dockerfile
+ARG DEBIAN_TAG=bookworm-slim
+ARG DEBIAN_DIGEST=sha256:7b140f37…
+FROM debian:${DEBIAN_TAG}@${DEBIAN_DIGEST}
+```
+
+A tag is mutable, so without the digest two builds a day apart could produce
+different bytes with no record of why. The workflow re-resolves both digests
+(Debian for the node image, Python for the exporter) and, when either has moved,
+rewrites the `ARG` in place and opens a PR. Merge it and tag the next `-rN`.
+
+The diff is then self-documenting: you can see exactly which base moved and to
+what, instead of a side file the build never read.
 
 ### Manually pinning a specific upstream version
 
@@ -216,7 +227,7 @@ that supply chain.
 | Version strings in README/docs | Hand-written; check them when cutting a release | Manually |
 | Linter and tooling images | Explicit version tag | Manually |
 | The Verus daemon | SHA-256 of the release archive, per architecture | `upstream-watch.yml` (daily PR) |
-| The base image | Tag, with digest drift watched separately | `rebuild.yml` (weekly PR) |
+| The base images | Tag **and** digest, pinned in the Dockerfiles | `rebuild.yml` (weekly PR) |
 
 Actions get SHAs rather than tags because a git tag is mutable: an attacker who
 compromises an action repository can repoint `v4` at new code, and every
