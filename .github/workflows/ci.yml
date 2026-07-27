@@ -164,7 +164,7 @@ jobs:
 
       # amd64 only here; the release workflow proves the cross build.
       - name: Build image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           platforms: linux/amd64
@@ -191,7 +191,7 @@ jobs:
         run: bash scripts/smoke-test.sh
 
       - name: Exporter builds
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: exporter
           platforms: linux/amd64
