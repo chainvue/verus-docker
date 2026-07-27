@@ -8,11 +8,11 @@ on:
     tags:
       - "v*"
 
+# Least privilege by default; each job below widens only what it needs.
+# `attestations: write` is deliberately absent — provenance and SBOMs here come
+# from buildx OCI referrers plus cosign, not the GitHub attestations API.
 permissions:
-  contents: write # create the GitHub release
-  packages: write # push to ghcr.io
-  id-token: write # cosign keyless signing via OIDC
-  attestations: write
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -26,6 +26,8 @@ jobs:
   verify-tag:
     name: Verify tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       upstream: ${{ steps.check.outputs.upstream }}
       revision: ${{ steps.check.outputs.revision }}
@@ -53,15 +55,32 @@ jobs:
             exit 1
           fi
 
+          # The tag must point at a commit that is actually on main.
+          #
+          # Without this, anyone who can push a tag can have CI build, cosign-sign
+          # and publish an arbitrary commit to `latest` — and `cosign verify` would
+          # pass, because the assertion it makes is "built by this repo's release
+          # workflow", which would be entirely true. Tag protection in the
+          # repository settings is the other half of this; see
+          # docs/maintainers/repository-setup.md.
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::tag '${tag}' points at ${GITHUB_SHA}, which is not on main"
+            echo "::error::Releases are only ever cut from reviewed commits on main."
+            exit 1
+          fi
+
           echo "upstream=${upstream}" >> "$GITHUB_OUTPUT"
           echo "revision=${revision}" >> "$GITHUB_OUTPUT"
-          echo "tag ${tag} is consistent with the Dockerfile"
+          echo "tag ${tag} is consistent with the Dockerfile and is on main"
 
   # ---------------------------------------------------------------------------
   smoke:
     name: Smoke test before publishing
     needs: verify-tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -92,6 +111,10 @@ jobs:
     name: Build, sign and publish
     needs: [verify-tag, smoke]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # cosign keyless signing via OIDC
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
@@ -106,9 +129,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tag fan-out:
+      # Tag fan-out (note the `v` on the moving upstream tag — it is derived
+      # from the pushed tag, so it carries the prefix; docs, Helm and the
+      # cosign examples all reference it in that form):
       #   v1.2.17-2-r1  immutable, never moves       <- the tag being pushed
-      #   1.2.17-2      newest rN for that upstream  <- moves
+      #   v1.2.17-2     newest rN for that upstream  <- moves
       #   latest        newest stable overall        <- moves
       - name: Docker metadata
         id: meta
@@ -180,6 +205,12 @@ jobs:
     name: Build, sign and publish the exporter
     needs: [verify-tag, smoke]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # cosign keyless signing via OIDC
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -231,15 +262,49 @@ jobs:
             cosign sign --yes "${tag%%:*}@${DIGEST}"
           done <<< "$TAGS"
 
+      # The exporter gets the same treatment as the node image. For releases r1
+      # through r10 it did not: it was signed but never had an attached SBOM,
+      # which made LICENSING.md's "every release ships an SPDX SBOM" false for
+      # exactly one of the two images we publish.
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/verus-exporter@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom-exporter.spdx.json
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes --predicate sbom-exporter.spdx.json --type spdxjson \
+            "${REGISTRY}/${{ github.repository_owner }}/verus-exporter@${{ steps.build.outputs.digest }}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-exporter
+          path: sbom-exporter.spdx.json
+
   # ---------------------------------------------------------------------------
+  # A matrix rather than two jobs, so the exporter cannot quietly fall out of
+  # the security pipeline again — it shipped unscanned from r1 to r10 because
+  # this job named one image explicitly.
   scan:
-    name: Vulnerability scan
-    needs: publish
+    name: Vulnerability scan (${{ matrix.name }})
+    needs: [publish, publish-exporter]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
       packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: node
+            ref: ${{ needs.publish.outputs.digest }}
+            repo: verus-docker
+          - name: exporter
+            ref: ${{ needs.publish-exporter.outputs.digest }}
+            repo: verus-exporter
     steps:
       # Trivy pulls the image from the registry, so it needs credentials.
       # Without this it fails with UNAUTHORIZED against a private package —
@@ -257,7 +322,7 @@ jobs:
       - name: Trivy scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.publish.outputs.digest }}
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.repo }}@${{ matrix.ref }}
           format: sarif
           output: trivy.sarif
           severity: CRITICAL,HIGH
@@ -266,11 +331,12 @@ jobs:
       - uses: github/codeql-action/upload-sarif@4187e74d05793876e9989daffde9c3e66b4acd07 # v3.37.3
         with:
           sarif_file: trivy.sarif
+          category: trivy-${{ matrix.name }}
 
       - name: Fail on critical findings
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.publish.outputs.digest }}
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.repo }}@${{ matrix.ref }}
           format: table
           severity: CRITICAL
           ignore-unfixed: true
@@ -281,6 +347,8 @@ jobs:
     name: GitHub release
     needs: [verify-tag, publish]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release and upload the SBOM
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

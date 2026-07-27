@@ -18,6 +18,7 @@ HELM_IMAGE        ?= alpine/helm:3.16.3
 KUSTOMIZE_IMAGE   ?= registry.k8s.io/kustomize/kustomize:v5.4.3
 KUBECONFORM_IMAGE ?= ghcr.io/yannh/kubeconform:v0.6.7
 ACTIONLINT_IMAGE  ?= rhysd/actionlint:1.7.7
+PROMTOOL_IMAGE    ?= prom/prometheus:v3.1.0
 K8S_VERSION       ?= 1.31.0
 
 COMPOSE_TESTNET    := examples/compose.testnet.yml
@@ -64,7 +65,7 @@ build-exporter: ## Build the Prometheus exporter image
 
 ## --- Lint -----------------------------------------------------------------
 
-lint: shellcheck shfmt hadolint json-lint py-check helm-lint k8s-validate actionlint env-docs ## Run every linter
+lint: shellcheck shfmt hadolint json-lint py-check helm-lint k8s-validate actionlint promtool env-docs ## Run every linter
 
 shellcheck: ## Lint shell scripts
 	docker run --rm -v "$(PWD):/mnt" -w /mnt $(SHELLCHECK_IMAGE) \
@@ -86,6 +87,12 @@ actionlint: ## Lint the GitHub Actions workflows
 
 env-docs: ## Check every env var is documented in the README and .env.example
 	@bash scripts/check-env-docs.sh
+
+promtool: ## Check the Prometheus alert rules and run their unit tests
+	docker run --rm -v "$(PWD)/examples/prometheus:/rules:ro" -w /rules \
+		--entrypoint promtool $(PROMTOOL_IMAGE) check rules alerts.yml
+	docker run --rm -v "$(PWD)/examples/prometheus:/rules:ro" -w /rules \
+		--entrypoint promtool $(PROMTOOL_IMAGE) test rules alerts_test.yml
 
 json-lint: ## Validate the chain metadata and dashboard JSON
 	@for f in chains/*.json examples/grafana/dashboards/*.json; do \

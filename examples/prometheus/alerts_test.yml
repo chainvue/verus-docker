@@ -1,0 +1,58 @@
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+# input series are 1m apart so the series never goes stale between evaluations
+
+tests:
+  # A brand new mainnet node: never synced, but making steady progress.
+  # Neither sync alert should fire.
+  - interval: 1m
+    input_series:
+      - series: 'verus_sync_complete{chain="VRSC"}'
+        values: "0+0x1440"
+      - series: 'verus_blocks{chain="VRSC"}'
+        values: "1000+5x1440"
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: VerusNotSynced
+        exp_alerts: []
+      - eval_time: 20h
+        alertname: VerusInitialSyncStalled
+        exp_alerts: []
+
+  # A node that WAS synced and fell behind. VerusNotSynced should fire.
+  - interval: 1m
+    input_series:
+      - series: 'verus_sync_complete{chain="VRSC"}'
+        values: "1+0x360 0+0x1080"
+      - series: 'verus_blocks{chain="VRSC"}'
+        values: "4000000+1x1440"
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: VerusNotSynced
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              chain: VRSC
+            exp_annotations:
+              summary: "Verus VRSC has fallen behind"
+              description: "Was synced within the last 7 days, but has been behind the tip for 6 hours."
+
+  # A new node whose sync is genuinely stuck: no block progress at all.
+  - interval: 1m
+    input_series:
+      - series: 'verus_sync_complete{chain="VRSC"}'
+        values: "0+0x1440"
+      - series: 'verus_blocks{chain="VRSC"}'
+        values: "68883+0x1440"
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: VerusInitialSyncStalled
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              chain: VRSC
+            exp_annotations:
+              summary: "Verus VRSC initial sync is not progressing"
+              description: "Never reached the tip and gained no blocks in 6 hours. Check peers and disk space."

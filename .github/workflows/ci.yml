@@ -59,6 +59,16 @@ jobs:
         run: |
           python3 -c "import pathlib; f='exporter/verus_exporter.py'; compile(pathlib.Path(f).read_text(), f, 'exec')"
 
+      # The unit tests matter more than the syntax check: they pin down which
+      # alerts fire during a normal multi-day initial sync, which is not
+      # something you can eyeball from the PromQL.
+      - name: Prometheus rules
+        run: |
+          docker run --rm -v "$PWD/examples/prometheus:/rules:ro" -w /rules \
+            --entrypoint promtool prom/prometheus:v3.1.0 check rules alerts.yml
+          docker run --rm -v "$PWD/examples/prometheus:/rules:ro" -w /rules \
+            --entrypoint promtool prom/prometheus:v3.1.0 test rules alerts_test.yml
+
       - name: JSON validity
         run: |
           for f in chains/*.json examples/grafana/dashboards/*.json; do
