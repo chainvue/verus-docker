@@ -89,6 +89,16 @@ Also out of scope:
 Every release is built only by CI from a git tag, signed with cosign keyless
 signing, and ships an SPDX SBOM.
 
+**You need cosign v3 or newer.** Since the release workflow moved to
+`cosign-installer@v4`, signing uses cosign v3, which stores a container
+signature as an [OCI Image 1.1 referring artifact][oci-referrers] in the
+standardised protobuf bundle format rather than at the legacy
+`sha256-<digest>.sig` tag. A cosign v2 client does not find signatures stored
+that way. Releases signed before that change remain verifiable with either
+client.
+
+[oci-referrers]: https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-referrers
+
 **Verify the signature:**
 
 ```bash

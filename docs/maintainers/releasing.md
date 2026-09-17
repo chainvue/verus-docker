@@ -99,6 +99,8 @@ git push origin "$TAG"
 
 **6. Verify what shipped.**
 
+Requires **cosign v3 or newer** on the machine you run this from.
+
 ```bash
 cosign verify ghcr.io/chainvue/verus-docker:$TAG \
   --certificate-identity-regexp 'https://github.com/chainvue/verus-docker/.github/workflows/release.yml@.*' \
