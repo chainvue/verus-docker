@@ -379,6 +379,9 @@ jobs:
 
           ## Verifying this release
 
+          Requires **cosign v3 or newer**: signatures are stored as an OCI
+          Image 1.1 referring artifact, which a cosign v2 client does not find.
+
           \`\`\`bash
           cosign verify ${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME} \\
             --certificate-identity-regexp 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@.*' \\
