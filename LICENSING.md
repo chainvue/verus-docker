@@ -75,6 +75,9 @@ them is the more honest trade.
 Every release is signed and ships an SPDX SBOM listing every package in the
 image.
 
+These commands require **cosign v3 or newer**; see
+[SECURITY.md](SECURITY.md#verifying-what-you-are-running) for why.
+
 ```bash
 # Confirm the image came from this repository's release workflow
 cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \

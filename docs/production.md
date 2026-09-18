@@ -252,7 +252,7 @@ restrict `RPC_ALLOW_IP` accordingly. Root and testnet chains are unaffected.
 - Credentials are generated into the data volume at mode 0600 and never logged.
   Do not put them in environment variables that end up in `docker inspect`
   output if you can read them from the file instead.
-- Verify what you are running:
+- Verify what you are running (needs **cosign v3 or newer**):
   ```bash
   cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
     --certificate-identity-regexp 'https://github.com/chainvue/verus-docker/.github/workflows/release.yml@.*' \

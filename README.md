@@ -211,7 +211,9 @@ long time and killing it early corrupts chain state.
 
 `-rN` increments when the image changes but the daemon does not, and resets to
 `r1` on every daemon upgrade. Releases are built only by CI from a git tag,
-signed with cosign keyless, and ship an SPDX SBOM:
+signed with cosign keyless, and ship an SPDX SBOM.
+
+Verification requires **cosign v3 or newer** (see [SECURITY.md](SECURITY.md#verifying-what-you-are-running)):
 
 ```bash
 cosign verify ghcr.io/chainvue/verus-docker:v1.2.17-2-r1 \
