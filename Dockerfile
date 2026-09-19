@@ -17,7 +17,7 @@
 # defence in depth. Both must pass or the build fails.
 # =============================================================================
 
-ARG VERUS_VERSION=v1.2.17-6
+ARG VERUS_VERSION=v1.2.18
 # The base is pinned by digest, not just by tag. A tag is mutable, so two builds
 # a day apart could otherwise produce different bytes with no record of why. The
 # tag stays for readability; the digest is what is actually resolved.
@@ -39,8 +39,8 @@ ARG TARGETARCH
 
 # SHA-256 of the outer .tgz release asset, per architecture.
 # Update both together; scripts/bump-upstream.sh recomputes them.
-ARG VERUS_SHA256_AMD64=3585901f6d0ef8dd4efa0902aabb98e2be51b96cdab4b02db7aecb71855f7562
-ARG VERUS_SHA256_ARM64=7ad3901348cd0e29a447ae9ecd969369f006ea17e2373ac89bbd3a43a0ad75f9
+ARG VERUS_SHA256_AMD64=3c8a749a2d18059988bafcff37e72175bb8b2853caa356f820ad1e75c8189cb0
+ARG VERUS_SHA256_ARM64=30c85f1b02236b42ff4bd55196fda7e0c8a2c1b47f975b39d4b318b656009a01
 
 ARG VERUS_SIGNER="Verus Coin Foundation Releases@"
 
