@@ -24,7 +24,7 @@ ARG VERUS_VERSION=v1.2.17-6
 # rebuild.yml re-resolves it weekly and opens a PR when it moves, which is how
 # base-image security fixes reach published images.
 ARG DEBIAN_TAG=bookworm-slim
-ARG DEBIAN_DIGEST=sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
+ARG DEBIAN_DIGEST=sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 # -----------------------------------------------------------------------------
 # Stage 1: fetch and verify the upstream binaries.
