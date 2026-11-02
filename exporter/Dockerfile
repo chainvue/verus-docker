@@ -7,7 +7,7 @@
 
 # Pinned by digest for the same reason as the node image; see its Dockerfile.
 ARG PYTHON_TAG=3.12-slim
-ARG PYTHON_DIGEST=sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+ARG PYTHON_DIGEST=sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
 
 FROM python:${PYTHON_TAG}@${PYTHON_DIGEST}
 
